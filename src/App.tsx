@@ -1,49 +1,35 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
+const features = [
+  { icon: "📄", title: "Markdown local", desc: "Tus notas son archivos .md reales, sin base de datos." },
+  { icon: "🔗", title: "Backlinks y wikilinks", desc: "Conecta notas con [[wikilinks]] y navega hacia atrás." },
+  { icon: "🕸️", title: "Grafo visual", desc: "Explora relaciones entre notas en un grafo interactivo." },
+  { icon: "🤖", title: "Memoria para Claude Code", desc: "El repositorio está diseñado para ser navegable por Claude." },
+];
+
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
-
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
-
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    <main className="nw-container">
+      <header className="nw-header">
+        <h1 className="nw-title">Nebulosa Wiki</h1>
+        <p className="nw-subtitle">Wiki Markdown local, portable y preparada para Claude Code.</p>
+        <span className="nw-badge">MVP inicial en construcción</span>
+      </header>
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
+      <section className="nw-info">
+        <span className="nw-info-label">Carpeta wiki</span>
+        <code className="nw-path">D:\NebulosaWiki</code>
+      </section>
 
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
+      <section className="nw-grid">
+        {features.map((f) => (
+          <div className="nw-card" key={f.title}>
+            <span className="nw-card-icon">{f.icon}</span>
+            <h2 className="nw-card-title">{f.title}</h2>
+            <p className="nw-card-desc">{f.desc}</p>
+          </div>
+        ))}
+      </section>
     </main>
   );
 }

@@ -6,10 +6,12 @@ Nebulosa Wiki es una aplicación local-first, portable y visual para manejar una
 
 ## Estado actual
 
-- Proyecto en fase inicial de documentación
-- `ADR-0001.md` creado — decisión de stack
-- `CLAUDE.md` creado — memoria operativa para Claude Code
-- Todavía no hay aplicación funcional
+- Base Tauri + React + TypeScript integrada
+- Pantalla inicial propia (sin logos genéricos de Tauri/Vite/React)
+- Estructura `.claude/` lista para Claude Code
+- Documentación inicial completa (`ADR-0001.md`, `CLAUDE.md`)
+- Todavía no hay lectura real de archivos Markdown
+- Todavía no hay grafo visual ni detección de wikilinks
 
 ---
 
@@ -24,15 +26,49 @@ Nebulosa Wiki es una aplicación local-first, portable y visual para manejar una
 
 ---
 
-## Carpeta wiki por defecto
+## Requisitos
+
+- [Node.js](https://nodejs.org/) (v18 o superior)
+- npm (incluido con Node.js)
+- [Rust y Cargo](https://rustup.rs/)
+- [Visual Studio Build Tools 2022](https://visualstudio.microsoft.com/visual-cpp-build-tools/) con el componente **Desarrollo para el escritorio con C++**
+- [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) (incluido en Windows 11; en Windows 10 puede requerirse instalación manual)
+
+---
+
+## Instalación local
+
+```bash
+git clone https://github.com/AndreFGch/NebulosaWikiApp.git
+cd NebulosaWikiApp
+npm install
+```
+
+---
+
+## Ejecutar en desarrollo
+
+```bash
+npm run tauri dev
+```
+
+Esto abre la ventana de escritorio Tauri con recarga en caliente. La primera compilación de Rust puede tardar varios minutos.
+
+---
+
+## Carpeta wiki local
+
+La wiki real vive por defecto en:
 
 ```
 D:\NebulosaWiki
 ```
 
+Esa carpeta no forma parte de este repositorio. Los archivos `.md` dentro de ella son la fuente de verdad de las notas; la app los lee directamente sin base de datos externa.
+
 ---
 
-## Stack propuesto
+## Stack
 
 | Capa | Tecnología |
 |---|---|
@@ -47,17 +83,23 @@ Ver decisión completa en [`ADR-0001.md`](ADR-0001.md).
 
 ---
 
-## Roadmap inicial
+## Próximos pasos
+
+- [ ] Crear layout base (sidebar + panel de nota)
+- [ ] Leer carpeta `D:\NebulosaWiki` desde Tauri (comando Rust)
+- [ ] Listar notas Markdown en el sidebar
+- [ ] Detectar wikilinks en el contenido de las notas
+- [ ] Detectar backlinks (qué notas apuntan a cada nota)
+- [ ] Construir grafo visual con Cytoscape.js
+
+---
+
+## Roadmap completado
 
 - [x] Crear base documental (`ADR-0001.md`, `CLAUDE.md`, `README.md`, `.gitignore`)
-- [ ] Crear estructura `.claude/` (skills, commands, scripts)
-- [ ] Crear estructura inicial del repositorio
-- [ ] Crear proyecto Tauri base
-- [ ] Escanear archivos Markdown de la carpeta wiki
-- [ ] Indexar notas localmente
-- [ ] Detectar wikilinks y backlinks
-- [ ] Crear UI básica con React
-- [ ] Crear grafo visual con Cytoscape.js
+- [x] Crear estructura `.claude/` (skills, commands, scripts)
+- [x] Crear proyecto Tauri + React + TypeScript base
+- [x] Pantalla inicial propia de Nebulosa Wiki
 
 ---
 

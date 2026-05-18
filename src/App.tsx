@@ -287,18 +287,28 @@ const GRAPH_STYLE: cytoscape.Stylesheet[] = [
       "text-valign": "bottom",
       "text-halign": "center",
       "text-margin-y": 4,
-      "width": 10,
-      "height": 10,
-      "border-width": 0,
+      "width": "mapData(connections, 0, 20, 8, 20)",
+      "height": "mapData(connections, 0, 20, 8, 20)",
+      "border-width": 1,
+      "border-color": "#3a4060",
+      "border-opacity": 0.5,
       "text-wrap": "ellipsis",
       "text-max-width": "80px",
       "text-opacity": 0,
-    },
+    } as unknown as cytoscape.Css.Node,
   },
   ...Object.entries(FOLDER_COLORS).map(([folder, color]) => ({
     selector: `node[folder = "${folder}"]`,
     style: { "background-color": color } as cytoscape.Css.Node,
   })),
+  {
+    selector: 'node[folder = "indexes"]',
+    style: {
+      "width": 7,
+      "height": 7,
+      "opacity": 0.7,
+    } as cytoscape.Css.Node,
+  },
   {
     selector: 'node[nodeType = "missing"]',
     style: {
@@ -320,6 +330,15 @@ const GRAPH_STYLE: cytoscape.Stylesheet[] = [
     } as cytoscape.Css.Node,
   },
   {
+    selector: "node.nw-neighbor",
+    style: {
+      "text-opacity": 1,
+      "color": "#6a7090",
+      "font-size": "9px",
+      "z-index": 5,
+    },
+  },
+  {
     selector: "node.nw-hovered",
     style: {
       "text-opacity": 1,
@@ -329,17 +348,28 @@ const GRAPH_STYLE: cytoscape.Stylesheet[] = [
     },
   },
   {
+    selector: "node.nw-dimmed",
+    style: {
+      "opacity": 0.12,
+      "text-opacity": 0,
+    },
+  },
+  {
     selector: "node.nw-selected",
     style: {
-      "width": 14,
-      "height": 14,
-      "border-width": 2,
-      "border-color": "#e2e4ee",
+      "border-width": 2.5,
+      "border-color": "#c4b5fd",
+      "border-opacity": 1,
       "text-opacity": 1,
       "color": "#e2e4ee",
       "font-size": "10px",
       "z-index": 20,
-    },
+      "shadow-blur": 14,
+      "shadow-color": "#7c6af7",
+      "shadow-offset-x": 0,
+      "shadow-offset-y": 0,
+      "shadow-opacity": 0.6,
+    } as unknown as cytoscape.Css.Node,
   },
   {
     selector: "edge",
@@ -358,6 +388,20 @@ const GRAPH_STYLE: cytoscape.Stylesheet[] = [
       "line-style": "dashed",
       "opacity": 0.2,
     } as cytoscape.Css.Edge,
+  },
+  {
+    selector: "edge.nw-connected",
+    style: {
+      "opacity": 0.8,
+      "width": 1.5,
+      "line-color": "#5c6490",
+    },
+  },
+  {
+    selector: "edge.nw-dimmed-edge",
+    style: {
+      "opacity": 0.05,
+    },
   },
 ];
 
@@ -441,6 +485,7 @@ function App() {
           relativePath: n.relativePath,
           nodeType: !n.exists ? "missing" : n.isOrphan ? "orphan" : "existing",
           exists: n.exists,
+          connections: n.outgoingCount + n.backlinkCount,
         },
       })),
       ...wikiGraph.edges
@@ -494,11 +539,11 @@ function App() {
       if (!evt.target.data("exists")) return;
       const relPath: string = evt.target.data("relativePath");
       const note = notes.find((n) => n.relativePath === relPath);
-      if (note) {
-        cy.nodes().removeClass("nw-selected");
-        evt.target.addClass("nw-selected");
-        handleNoteClick(note);
-      }
+      if (note) handleNoteClick(note);
+    });
+
+    cy.on("tap", (evt) => {
+      if (evt.target === cy) setSelectedNote(null);
     });
 
     cyRef.current = cy;
@@ -506,10 +551,40 @@ function App() {
   }, [graphReady, wikiGraph, notes, handleNoteClick]);
 
   useEffect(() => {
-    if (!cyRef.current || !selectedNote) return;
-    cyRef.current.nodes().removeClass("nw-selected");
-    cyRef.current.$(`#${sanitizeId(selectedNote.relativePath)}`).addClass("nw-selected");
+    const cy = cyRef.current;
+    if (!cy) return;
+
+    cy.nodes().removeClass("nw-selected nw-neighbor nw-dimmed");
+    cy.edges().removeClass("nw-connected nw-dimmed-edge");
+
+    if (!selectedNote) return;
+
+    const nodeId = sanitizeId(selectedNote.relativePath);
+    const target = cy.nodes(`#${nodeId}`);
+    if (target.empty()) return;
+
+    target.addClass("nw-selected");
+
+    const neighborIds = new Set<string>();
+    cy.edges().forEach((e) => {
+      const src = e.source().id();
+      const tgt = e.target().id();
+      if (src === nodeId) { e.addClass("nw-connected"); neighborIds.add(tgt); }
+      else if (tgt === nodeId) { e.addClass("nw-connected"); neighborIds.add(src); }
+      else e.addClass("nw-dimmed-edge");
+    });
+
+    cy.nodes().forEach((n) => {
+      const id = n.id();
+      if (id === nodeId) return;
+      if (neighborIds.has(id)) n.addClass("nw-neighbor");
+      else n.addClass("nw-dimmed");
+    });
   }, [selectedNote]);
+
+  const selectedNodeMeta = selectedNote && wikiGraph
+    ? (wikiGraph.nodes.find((n) => n.relativePath === selectedNote.relativePath) ?? null)
+    : null;
 
   return (
     <div className="nw-shell">
@@ -553,6 +628,11 @@ function App() {
               )}
             </span>
           )}
+          <div className="nw-graph-chips">
+            <span className="nw-graph-chip nw-graph-chip--active">Global</span>
+            {selectedNote && <span className="nw-graph-chip nw-graph-chip--focus">Foco</span>}
+            <span className="nw-graph-chip nw-graph-chip--dim">Índices ocultos</span>
+          </div>
           {graphReady && (
             <button
               className="nw-view-btn"
@@ -564,7 +644,64 @@ function App() {
         </div>
         {graphLoading && <p className="nw-graph-status">Construyendo grafo...</p>}
         {graphError && <p className="nw-graph-status nw-graph-status--error">Error: {graphError}</p>}
-        <div ref={graphContainerRef} className="nw-graph-container" />
+        <div className="nw-graph-canvas-wrapper">
+          <div ref={graphContainerRef} className="nw-graph-container" />
+          {graphReady && (
+            <div className="nw-graph-overlay">
+              <div className="nw-graph-controls">
+                <div className="nw-ctrl-section">
+                  <span className="nw-ctrl-title">Vista</span>
+                  <div className="nw-ctrl-row">
+                    <span className="nw-ctrl-chip nw-ctrl-chip--active">Global</span>
+                    <span className="nw-ctrl-chip nw-ctrl-chip--disabled">Local</span>
+                  </div>
+                </div>
+                <div className="nw-ctrl-section">
+                  <span className="nw-ctrl-title">Mostrar</span>
+                  <div className="nw-ctrl-row">
+                    <span className="nw-ctrl-key">Labels</span>
+                    <span className="nw-ctrl-val">Auto</span>
+                  </div>
+                  <div className="nw-ctrl-row">
+                    <span className="nw-ctrl-key">Índices</span>
+                    <span className="nw-ctrl-val">ocultos</span>
+                  </div>
+                  <div className="nw-ctrl-row">
+                    <span className="nw-ctrl-key">Rotos</span>
+                    <span className="nw-ctrl-val">visibles</span>
+                  </div>
+                </div>
+                <div className="nw-ctrl-section">
+                  <span className="nw-ctrl-title">Fuerzas</span>
+                  <div className="nw-ctrl-row">
+                    <span className="nw-ctrl-key">Repel</span>
+                    <span className="nw-ctrl-val">18k</span>
+                  </div>
+                  <div className="nw-ctrl-row">
+                    <span className="nw-ctrl-key">Distance</span>
+                    <span className="nw-ctrl-val">250</span>
+                  </div>
+                </div>
+              </div>
+              <div className="nw-graph-legend">
+                {Object.entries(FOLDER_COLORS).map(([folder, color]) => (
+                  <div key={folder} className="nw-legend-item">
+                    <span className="nw-legend-dot" style={{ backgroundColor: color }} />
+                    <span className="nw-legend-label">{folder}</span>
+                  </div>
+                ))}
+                <div className="nw-legend-item">
+                  <span className="nw-legend-dot nw-legend-dot--orphan" />
+                  <span className="nw-legend-label">huérfana</span>
+                </div>
+                <div className="nw-legend-item">
+                  <span className="nw-legend-dot nw-legend-dot--missing" />
+                  <span className="nw-legend-label">faltante</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </main>
 
       <aside className="nw-detail-panel">
@@ -587,6 +724,36 @@ function App() {
             </div>
           )}
         </div>
+        {selectedNodeMeta && (
+          <div className="nw-node-meta">
+            <div className="nw-node-meta-row">
+              <span className="nw-node-meta-key">ruta</span>
+              <span className="nw-node-meta-val nw-node-meta-path">{selectedNodeMeta.relativePath}</span>
+            </div>
+            <div className="nw-node-meta-row">
+              <span className="nw-node-meta-key">carpeta</span>
+              <span className="nw-node-meta-val">{selectedNodeMeta.folder}</span>
+            </div>
+            <div className="nw-node-meta-row">
+              <span className="nw-node-meta-key">tipo</span>
+              <span className="nw-node-meta-val">{selectedNodeMeta.type}</span>
+            </div>
+            <div className="nw-node-meta-row">
+              <span className="nw-node-meta-key">estado</span>
+              <span className={`nw-node-meta-val nw-node-meta-status--${!selectedNodeMeta.exists ? "faltante" : selectedNodeMeta.isOrphan ? "huerfana" : "normal"}`}>
+                {!selectedNodeMeta.exists ? "faltante" : selectedNodeMeta.isOrphan ? "huérfana" : "normal"}
+              </span>
+            </div>
+            <div className="nw-node-meta-row">
+              <span className="nw-node-meta-key">salientes</span>
+              <span className="nw-node-meta-val">{selectedNodeMeta.outgoingCount}</span>
+            </div>
+            <div className="nw-node-meta-row">
+              <span className="nw-node-meta-key">backlinks</span>
+              <span className="nw-node-meta-val">{selectedNodeMeta.backlinkCount}</span>
+            </div>
+          </div>
+        )}
         <div className="nw-detail-content">
           {!selectedNote && (
             <p className="nw-viewer-empty">Seleccioná un nodo en el grafo.</p>

@@ -214,14 +214,32 @@ body {
   color: var(--error);
 }
 
-/* Graph canvas */
-.nw-graph-container {
+/* Graph canvas wrapper */
+.nw-graph-canvas-wrapper {
+  position: relative;
   flex: 1;
-  width: 100%;
   min-height: 0;
+}
+
+.nw-graph-container {
+  position: absolute;
+  inset: 0;
   background-color: #07090e;
-  background-image: radial-gradient(circle, #1a1f30 1px, transparent 1px);
-  background-size: 24px 24px;
+  background-image:
+    radial-gradient(ellipse at 50% 46%, rgba(28, 35, 80, 0.38) 0%, transparent 62%),
+    radial-gradient(circle, #141828 1px, transparent 1px);
+  background-size: 100% 100%, 18px 18px;
+}
+
+.nw-graph-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 14px;
+  gap: 10px;
 }
 
 /* ── Detail panel ───────────────────────────────────────────── */
@@ -509,6 +527,215 @@ body {
   font-size: 0.88em;
   cursor: default;
   white-space: nowrap;
+}
+
+/* ── Graph header chips ─────────────────────────────────────── */
+.nw-graph-chips {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.nw-graph-chip {
+  font-size: 0.63rem;
+  padding: 2px 7px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  background: transparent;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+  user-select: none;
+}
+
+.nw-graph-chip--active {
+  color: var(--accent);
+  border-color: rgba(124, 106, 247, 0.35);
+  background: rgba(124, 106, 247, 0.08);
+}
+
+.nw-graph-chip--focus {
+  color: #c4b5fd;
+  border-color: rgba(196, 181, 253, 0.35);
+  background: rgba(196, 181, 253, 0.08);
+}
+
+.nw-graph-chip--dim {
+  opacity: 0.55;
+}
+
+/* ── Graph controls panel ───────────────────────────────────── */
+.nw-graph-controls {
+  pointer-events: auto;
+  background: rgba(10, 12, 20, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(58, 64, 96, 0.5);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 126px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+.nw-ctrl-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nw-ctrl-section + .nw-ctrl-section {
+  padding-top: 8px;
+  border-top: 1px solid rgba(37, 42, 54, 0.8);
+}
+
+.nw-ctrl-title {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 1px;
+}
+
+.nw-ctrl-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.nw-ctrl-key {
+  font-size: 0.67rem;
+  color: var(--text-muted);
+}
+
+.nw-ctrl-val {
+  font-size: 0.63rem;
+  color: var(--text-dim);
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+}
+
+.nw-ctrl-chip {
+  font-size: 0.6rem;
+  padding: 1px 6px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: default;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.nw-ctrl-chip--active {
+  color: var(--accent);
+  border-color: rgba(124, 106, 247, 0.4);
+  background: rgba(124, 106, 247, 0.12);
+}
+
+.nw-ctrl-chip--disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ── Graph legend ───────────────────────────────────────────── */
+.nw-graph-legend {
+  pointer-events: auto;
+  background: rgba(10, 12, 20, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(58, 64, 96, 0.5);
+  border-radius: 10px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+.nw-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nw-legend-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nw-legend-dot--orphan {
+  background-color: #6b3a0a;
+  border: 1px solid #956030;
+}
+
+.nw-legend-dot--missing {
+  background-color: #1a1a2e;
+  border: 1px dashed #4a4a5e;
+}
+
+.nw-legend-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── Node metadata card ─────────────────────────────────────── */
+.nw-node-meta {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--badge-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.nw-node-meta-row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  min-width: 0;
+}
+
+.nw-node-meta-key {
+  color: var(--text-dim);
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  min-width: 54px;
+  flex-shrink: 0;
+}
+
+.nw-node-meta-val {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.nw-node-meta-path {
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  font-size: 0.67rem;
+  color: var(--text-dim);
+}
+
+.nw-node-meta-status--normal {
+  color: var(--ok);
+}
+
+.nw-node-meta-status--huerfana {
+  color: #956030;
+}
+
+.nw-node-meta-status--faltante {
+  color: var(--error);
 }
 
 /* ── Mobile ─────────────────────────────────────────────────── */

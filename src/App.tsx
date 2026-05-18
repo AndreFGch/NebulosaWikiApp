@@ -14,6 +14,11 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [selectedNote, setSelectedNote] = useState<MarkdownFile | null>(null);
+  const [noteContent, setNoteContent] = useState<string>("");
+  const [contentLoading, setContentLoading] = useState(false);
+  const [contentError, setContentError] = useState<string | null>(null);
+
   useEffect(() => {
     invoke<MarkdownFile[]>("list_markdown_files")
       .then((files) => {
@@ -25,6 +30,22 @@ function App() {
         setLoading(false);
       });
   }, []);
+
+  function handleNoteClick(note: MarkdownFile) {
+    setSelectedNote(note);
+    setNoteContent("");
+    setContentError(null);
+    setContentLoading(true);
+    invoke<string>("read_markdown_file", { relativePath: note.relativePath })
+      .then((content) => {
+        setNoteContent(content);
+        setContentLoading(false);
+      })
+      .catch((err) => {
+        setContentError(String(err));
+        setContentLoading(false);
+      });
+  }
 
   return (
     <main className="nw-container">
@@ -47,17 +68,46 @@ function App() {
       </section>
 
       {!loading && !error && notes.length > 0 && (
-        <section className="nw-notes">
-          <ul className="nw-note-list">
-            {notes.map((note) => (
-              <li className="nw-note-item" key={note.relativePath}>
-                <span className="nw-note-folder">{note.folder || "/"}</span>
-                <span className="nw-note-title">{note.title}</span>
-                <code className="nw-note-path">{note.relativePath}</code>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <div className="nw-workspace">
+          <section className="nw-notes">
+            <ul className="nw-note-list">
+              {notes.map((note) => (
+                <li
+                  className={`nw-note-item${selectedNote?.relativePath === note.relativePath ? " nw-note-item--selected" : ""}`}
+                  key={note.relativePath}
+                  onClick={() => handleNoteClick(note)}
+                >
+                  <span className="nw-note-folder">{note.folder || "/"}</span>
+                  <span className="nw-note-title">{note.title}</span>
+                  <code className="nw-note-path">{note.relativePath}</code>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="nw-viewer">
+            {!selectedNote && (
+              <p className="nw-viewer-empty">Seleccioná una nota para ver su contenido.</p>
+            )}
+            {selectedNote && (
+              <>
+                <div className="nw-viewer-header">
+                  <span className="nw-viewer-title">{selectedNote.title}</span>
+                  <code className="nw-viewer-path">{selectedNote.relativePath}</code>
+                </div>
+                {contentLoading && (
+                  <p className="nw-viewer-loading">Cargando contenido...</p>
+                )}
+                {contentError && (
+                  <p className="nw-viewer-error">Error: {contentError}</p>
+                )}
+                {!contentLoading && !contentError && (
+                  <pre className="nw-viewer-content">{noteContent}</pre>
+                )}
+              </>
+            )}
+          </section>
+        </div>
       )}
     </main>
   );

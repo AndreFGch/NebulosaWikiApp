@@ -40,30 +40,32 @@ body {
 
 /* Layout */
 .nw-container {
-  max-width: 860px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 48px 24px 80px;
+  padding: 32px 24px 48px;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 20px;
+  height: 100vh;
 }
 
 /* Header */
 .nw-header {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .nw-title {
-  font-size: 2rem;
+  font-size: 1.75rem;
   font-weight: 700;
   letter-spacing: -0.5px;
   color: var(--text);
 }
 
 .nw-subtitle {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
 }
 
@@ -75,7 +77,8 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 10px 16px;
+  padding: 8px 16px;
+  flex-shrink: 0;
 }
 
 .nw-info-label {
@@ -101,6 +104,7 @@ body {
   display: flex;
   align-items: center;
   min-height: 28px;
+  flex-shrink: 0;
 }
 
 .nw-status-loading {
@@ -127,11 +131,24 @@ body {
   padding: 6px 12px;
 }
 
-/* Notes section */
+/* Workspace — split panel */
+.nw-workspace {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Notes sidebar */
 .nw-notes {
+  flex: 0 0 300px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
 .nw-note-list {
@@ -142,14 +159,14 @@ body {
 }
 
 .nw-note-item {
-  display: grid;
-  grid-template-columns: 120px 1fr auto;
-  align-items: center;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 10px 16px;
+  padding: 8px 12px;
+  cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
 
@@ -158,8 +175,13 @@ body {
   border-color: var(--accent-dim);
 }
 
+.nw-note-item--selected {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+}
+
 .nw-note-folder {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: var(--accent);
   text-transform: lowercase;
   white-space: nowrap;
@@ -168,7 +190,7 @@ body {
 }
 
 .nw-note-title {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 500;
   color: var(--text);
   white-space: nowrap;
@@ -178,15 +200,110 @@ body {
 
 .nw-note-path {
   font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   color: var(--text-dim);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-@media (max-width: 600px) {
-  .nw-note-item {
-    grid-template-columns: 1fr;
-    gap: 4px;
+/* Content viewer */
+.nw-viewer {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.nw-viewer-empty {
+  padding: 40px 24px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-style: italic;
+  text-align: center;
+}
+
+.nw-viewer-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--badge-bg);
+  flex-shrink: 0;
+}
+
+.nw-viewer-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nw-viewer-path {
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.nw-viewer-loading {
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  font-style: italic;
+}
+
+.nw-viewer-error {
+  padding: 24px;
+  color: var(--error);
+  font-size: 0.88rem;
+  background: rgba(248, 113, 113, 0.06);
+}
+
+.nw-viewer-content {
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  font-size: 0.85rem;
+  line-height: 1.65;
+  color: var(--text);
+  padding: 20px 24px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-y: auto;
+  flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+@media (max-width: 768px) {
+  .nw-container {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .nw-workspace {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .nw-notes {
+    flex: none;
+    width: 100%;
+    max-height: 280px;
+    height: auto;
+  }
+
+  .nw-viewer {
+    height: 480px;
+    width: 100%;
   }
 
   .nw-note-path {
@@ -194,6 +311,6 @@ body {
   }
 
   .nw-title {
-    font-size: 1.6rem;
+    font-size: 1.4rem;
   }
 }

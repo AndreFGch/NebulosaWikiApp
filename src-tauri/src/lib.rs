@@ -54,11 +54,41 @@ fn list_markdown_files() -> Result<Vec<MarkdownFile>, String> {
     Ok(results)
 }
 
+#[tauri::command]
+fn read_markdown_file(relative_path: String) -> Result<String, String> {
+    if relative_path.contains("..") {
+        return Err("Ruta no permitida: intento de escape detectado.".to_string());
+    }
+
+    let wiki_root = Path::new(r"D:\NebulosaWiki");
+    let normalized = relative_path.replace('/', "\\");
+    let candidate = wiki_root.join(&normalized);
+
+    if candidate.extension().map_or(true, |e| e != "md") {
+        return Err("Solo se pueden leer archivos .md.".to_string());
+    }
+
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|_| format!("Archivo no encontrado: {}", relative_path))?;
+
+    let canonical_root = wiki_root
+        .canonicalize()
+        .map_err(|e| format!("Error al resolver la raíz de la wiki: {}", e))?;
+
+    if !canonical.starts_with(&canonical_root) {
+        return Err("Ruta no permitida: fuera de la wiki.".to_string());
+    }
+
+    std::fs::read_to_string(&canonical)
+        .map_err(|e| format!("Error al leer el archivo: {}", e))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![list_markdown_files])
+        .invoke_handler(tauri::generate_handler![list_markdown_files, read_markdown_file])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -502,6 +502,23 @@ body {
   white-space: nowrap;
 }
 
+/* Graph container */
+.nw-graph-container {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  background: #0a0c11;
+}
+
+/* Graph summary (node / edge count) */
+.nw-graph-summary {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 @media (max-width: 768px) {
   .nw-container {
     height: auto;

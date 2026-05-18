@@ -58,53 +58,65 @@ function extractWikilinks(content: string): string[] {
 }
 
 const FOLDER_COLORS: Record<string, string> = {
-  notes:    "#7c6af7",
-  projects: "#4ade80",
-  sources:  "#60a5fa",
-  skills:   "#f472b6",
-  sessions: "#fb923c",
-  indexes:  "#facc15",
+  notes:    "#6259b3",
+  projects: "#2e8a5e",
+  sources:  "#2f6fa8",
+  skills:   "#984070",
+  sessions: "#956030",
+  indexes:  "#8a7825",
 };
 
 const GRAPH_STYLE: cytoscape.Stylesheet[] = [
   {
     selector: "node",
     style: {
-      "background-color": "#2a2f42",
+      "background-color": "#2e3450",
       "label": "data(label)",
-      "color": "#b8bcce",
-      "font-size": "11px",
+      "color": "#40475e",
+      "font-size": "9px",
       "font-family": "Inter, Avenir, Helvetica, Arial, sans-serif",
       "text-valign": "bottom",
       "text-halign": "center",
-      "text-margin-y": 5,
-      "width": 26,
-      "height": 26,
-      "border-width": 1.5,
-      "border-color": "#3a3f52",
+      "text-margin-y": 4,
+      "width": 12,
+      "height": 12,
+      "border-width": 0,
+      "text-wrap": "ellipsis",
+      "text-max-width": "80px",
     },
   },
   ...Object.entries(FOLDER_COLORS).map(([folder, color]) => ({
     selector: `node[folder = "${folder}"]`,
-    style: { "background-color": color, "border-color": color } as cytoscape.Css.Node,
+    style: { "background-color": color } as cytoscape.Css.Node,
   })),
+  {
+    selector: "node.nw-hovered",
+    style: {
+      "color": "#9ea3be",
+      "font-size": "10px",
+      "z-index": 10,
+    },
+  },
   {
     selector: "node.nw-selected",
     style: {
-      "border-color": "#ffffff",
-      "border-width": 3,
+      "width": 16,
+      "height": 16,
+      "border-width": 2,
+      "border-color": "#e2e4ee",
+      "color": "#e2e4ee",
+      "font-size": "11px",
+      "z-index": 20,
     },
   },
   {
     selector: "edge",
     style: {
-      "width": 1,
-      "line-color": "#2a3048",
-      "target-arrow-color": "#3a4060",
-      "target-arrow-shape": "triangle",
+      "width": 0.75,
+      "line-color": "#18203a",
+      "target-arrow-shape": "none",
       "curve-style": "bezier",
-      "opacity": 0.7,
-      "arrow-scale": 0.7,
+      "opacity": 0.5,
     },
   },
 ];
@@ -218,7 +230,27 @@ function App() {
       container: graphContainerRef.current,
       elements,
       style: GRAPH_STYLE,
-      layout: { name: "cose", padding: 48, animate: false } as cytoscape.LayoutOptions,
+      layout: {
+        name: "cose",
+        animate: false,
+        fit: true,
+        padding: 60,
+        nodeRepulsion: 9000,
+        idealEdgeLength: 160,
+        edgeElasticity: 32,
+        gravity: 0.25,
+        numIter: 1000,
+        initialTemp: 200,
+        coolingFactor: 0.95,
+        minTemp: 1.0,
+      } as unknown as cytoscape.LayoutOptions,
+    });
+
+    cy.on("mouseover", "node", (evt) => {
+      evt.target.addClass("nw-hovered");
+    });
+    cy.on("mouseout", "node", (evt) => {
+      evt.target.removeClass("nw-hovered");
     });
 
     cy.on("tap", "node", (evt) => {
@@ -307,9 +339,17 @@ function App() {
                 </button>
               </div>
               {viewMode === "graph" && graphReady && (
-                <span className="nw-graph-summary">
-                  {graphNodes.length} nodos · {graphEdges.length} enlaces
-                </span>
+                <>
+                  <span className="nw-graph-summary">
+                    {graphNodes.length} nodos · {graphEdges.length} enlaces
+                  </span>
+                  <button
+                    className="nw-view-btn"
+                    onClick={() => cyRef.current?.fit(cyRef.current.elements(), 60)}
+                  >
+                    Centrar
+                  </button>
+                </>
               )}
               {viewMode !== "graph" && selectedNote && (
                 <code className="nw-viewer-path">{selectedNote.relativePath}</code>

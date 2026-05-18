@@ -507,7 +507,9 @@ body {
   flex: 1;
   width: 100%;
   min-height: 0;
-  background: #0a0c11;
+  background-color: #07090e;
+  background-image: radial-gradient(circle, #1a1f30 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 /* Graph summary (node / edge count) */

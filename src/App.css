@@ -521,6 +521,14 @@ body {
   flex-shrink: 0;
 }
 
+.nw-graph-orphans {
+  color: #956030;
+}
+
+.nw-graph-broken {
+  color: var(--error);
+}
+
 @media (max-width: 768px) {
   .nw-container {
     height: auto;

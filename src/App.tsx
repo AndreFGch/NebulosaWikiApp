@@ -12,16 +12,37 @@ interface MarkdownFile {
   folder: string;
 }
 
-interface WikiGraphNode {
+interface WikiNode {
   id: string;
-  label: string;
-  folder: string;
+  title: string;
   relativePath: string;
+  folder: string;
+  tags: string[];
+  type: string;
+  outgoingCount: number;
+  backlinkCount: number;
+  isOrphan: boolean;
+  exists: boolean;
 }
 
-interface WikiGraphEdge {
+interface WikiEdge {
+  id: string;
   source: string;
   target: string;
+  label: string;
+  type: string;
+  weight: number;
+  isBacklink: boolean;
+  isBroken: boolean;
+}
+
+interface WikiGraph {
+  nodes: WikiNode[];
+  edges: WikiEdge[];
+  orphanNodes: WikiNode[];
+  brokenLinks: WikiEdge[];
+  tags: string[];
+  folders: string[];
 }
 
 type ViewMode = "preview" | "raw" | "graph";
@@ -30,11 +51,83 @@ function sanitizeId(s: string): string {
   return s.replace(/[^a-zA-Z0-9]/g, "_");
 }
 
+function normalizeTitle(s: string): string {
+  return s.trim().toLowerCase();
+}
+
+function normalizeKey(s: string): string {
+  return s
+    .trim()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[-_/\\]+/g, " ")
+    .replace(/[^a-z0-9 ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractFrontmatterTitle(rawContent: string): string | null {
+  if (!rawContent.startsWith("---\n") && !rawContent.startsWith("---\r\n")) return null;
+  const closeIdx = rawContent.indexOf("\n---", 4);
+  if (closeIdx === -1) return null;
+  const fm = rawContent.slice(4, closeIdx);
+  const m = fm.match(/^(?:titulo|title):\s*(.+)/mi);
+  return m ? m[1].trim().replace(/^['"]|['"]$/g, "") : null;
+}
+
+function getNoteTypeFromFolder(folder: string): string {
+  const top = folder.split("/")[0].toLowerCase();
+  const known = ["notes", "projects", "sources", "skills", "sessions", "indexes", "inbox", "templates"];
+  return known.includes(top) ? top : "notes";
+}
+
 function stripFrontmatter(content: string): string {
   if (!content.startsWith("---\n") && !content.startsWith("---\r\n")) return content;
   const closeIdx = content.indexOf("\n---", 4);
   if (closeIdx === -1) return content;
   return content.slice(closeIdx + 4).replace(/^[\n\r]+/, "");
+}
+
+function stripCodeBlocks(content: string): string {
+  return content.replace(/```[\s\S]*?```/g, " ");
+}
+
+function stripInlineCode(content: string): string {
+  return content.replace(/`[^`\n]+`/g, " ");
+}
+
+function extractTags(rawContent: string): string[] {
+  if (!rawContent.startsWith("---\n") && !rawContent.startsWith("---\r\n")) return [];
+  const closeIdx = rawContent.indexOf("\n---", 4);
+  if (closeIdx === -1) return [];
+  const fm = rawContent.slice(4, closeIdx);
+
+  const inline = fm.match(/^tags:\s*\[([^\]]*)\]/m);
+  if (inline) {
+    return inline[1].split(",").map(t => t.trim().replace(/^['"]|['"]$/g, "")).filter(Boolean);
+  }
+
+  const block = fm.match(/^tags:\s*\n((?:[ \t]*-[ \t]*.+\n?)*)/m);
+  if (block) {
+    return block[1]
+      .split("\n")
+      .map(line => { const m = line.match(/^[ \t]*-[ \t]*(.+)/); return m ? m[1].trim().replace(/^['"]|['"]$/g, "") : ""; })
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function extractWikilinks(content: string): string[] {
+  const cleaned = stripInlineCode(stripCodeBlocks(content));
+  const links: string[] = [];
+  const re = /\[\[([^\]|\n]+?)(?:\|[^\]\n]*)?\]\]/g;
+  let m;
+  while ((m = re.exec(cleaned)) !== null) {
+    links.push(m[1].trim());
+  }
+  return links;
 }
 
 function preprocessWikilinks(content: string): string {
@@ -47,14 +140,134 @@ function preprocessWikilinks(content: string): string {
     );
 }
 
-function extractWikilinks(content: string): string[] {
-  const links: string[] = [];
-  const re = /\[\[([^\]|\n]+?)(?:\|[^\]\n]*)?\]\]/g;
-  let m;
-  while ((m = re.exec(content)) !== null) {
-    links.push(m[1].trim());
+function buildWikiGraph(notes: MarkdownFile[], contentMap: Map<string, string>): WikiGraph {
+  const index = new Map<string, MarkdownFile>();
+
+  function addKey(key: string, note: MarkdownFile) {
+    const nk = normalizeKey(key);
+    if (nk && !index.has(nk)) index.set(nk, note);
   }
-  return links;
+
+  notes.forEach((n) => {
+    const raw = contentMap.get(n.relativePath) ?? "";
+    addKey(n.title, n);
+    const fname = n.relativePath.replace(/\.md$/i, "").split(/[/\\]/).pop() ?? "";
+    if (fname) addKey(fname, n);
+    const fmTitle = extractFrontmatterTitle(raw);
+    if (fmTitle) addKey(fmTitle, n);
+  });
+
+  function resolve(link: string): MarkdownFile | undefined {
+    return index.get(normalizeKey(link));
+  }
+
+  const allTags = new Set<string>();
+  const allFolders = new Set<string>();
+  const nodeMap = new Map<string, WikiNode>();
+
+  notes.forEach((n) => {
+    const raw = contentMap.get(n.relativePath) ?? "";
+    const tags = extractTags(raw);
+    tags.forEach(t => allTags.add(t));
+    const folder = n.folder.split("/")[0] || "notes";
+    allFolders.add(folder);
+
+    nodeMap.set(n.relativePath, {
+      id: sanitizeId(n.relativePath),
+      title: n.title,
+      relativePath: n.relativePath,
+      folder,
+      tags,
+      type: getNoteTypeFromFolder(folder),
+      outgoingCount: 0,
+      backlinkCount: 0,
+      isOrphan: false,
+      exists: true,
+    });
+  });
+
+  const idToNode = new Map<string, WikiNode>();
+  nodeMap.forEach(node => idToNode.set(node.id, node));
+
+  const seenEdges = new Set<string>();
+  const edges: WikiEdge[] = [];
+  let edgeCounter = 0;
+
+  notes.forEach((n) => {
+    const raw = contentMap.get(n.relativePath) ?? "";
+    const sourceId = sanitizeId(n.relativePath);
+
+    extractWikilinks(raw).forEach((link) => {
+      const resolved = resolve(link);
+      if (resolved?.relativePath === n.relativePath) return;
+
+      const normLink = normalizeKey(link);
+      const targetKey = resolved
+        ? resolved.relativePath
+        : `__missing__/${normLink}`;
+      const targetId = resolved
+        ? sanitizeId(resolved.relativePath)
+        : sanitizeId(`missing_${normLink}`);
+
+      const edgeKey = `${sourceId}→${targetId}`;
+      if (seenEdges.has(edgeKey)) return;
+      seenEdges.add(edgeKey);
+
+      const isBroken = !resolved;
+
+      if (isBroken && !nodeMap.has(targetKey)) {
+        const virtual: WikiNode = {
+          id: targetId,
+          title: link,
+          relativePath: targetKey,
+          folder: "missing",
+          tags: [],
+          type: "missing",
+          outgoingCount: 0,
+          backlinkCount: 0,
+          isOrphan: false,
+          exists: false,
+        };
+        nodeMap.set(targetKey, virtual);
+        idToNode.set(targetId, virtual);
+      }
+
+      edges.push({
+        id: `e${edgeCounter++}`,
+        source: sourceId,
+        target: targetId,
+        label: link,
+        type: isBroken ? "broken" : "wikilink",
+        weight: 1,
+        isBacklink: false,
+        isBroken,
+      });
+    });
+  });
+
+  edges.forEach((edge) => {
+    const src = idToNode.get(edge.source);
+    const tgt = idToNode.get(edge.target);
+    if (src) src.outgoingCount++;
+    if (tgt) tgt.backlinkCount++;
+  });
+
+  nodeMap.forEach((node) => {
+    if (node.exists && node.outgoingCount === 0 && node.backlinkCount === 0) {
+      node.isOrphan = true;
+    }
+  });
+
+  const allNodes = Array.from(nodeMap.values());
+
+  return {
+    nodes: allNodes,
+    edges,
+    orphanNodes: allNodes.filter(n => n.isOrphan),
+    brokenLinks: edges.filter(e => e.isBroken),
+    tags: Array.from(allTags).sort(),
+    folders: Array.from(allFolders).sort(),
+  };
 }
 
 const FOLDER_COLORS: Record<string, string> = {
@@ -90,6 +303,26 @@ const GRAPH_STYLE: cytoscape.Stylesheet[] = [
     style: { "background-color": color } as cytoscape.Css.Node,
   })),
   {
+    selector: 'node[nodeType = "missing"]',
+    style: {
+      "background-color": "#252535",
+      "border-width": 1,
+      "border-color": "#4a4a5e",
+      "border-style": "dashed",
+      "width": 8,
+      "height": 8,
+      "opacity": 0.5,
+    } as cytoscape.Css.Node,
+  },
+  {
+    selector: 'node[nodeType = "orphan"]',
+    style: {
+      "border-width": 1.5,
+      "border-color": "#956030",
+      "opacity": 0.65,
+    } as cytoscape.Css.Node,
+  },
+  {
     selector: "node.nw-hovered",
     style: {
       "color": "#9ea3be",
@@ -119,6 +352,14 @@ const GRAPH_STYLE: cytoscape.Stylesheet[] = [
       "opacity": 0.5,
     },
   },
+  {
+    selector: 'edge[edgeType = "broken"]',
+    style: {
+      "line-color": "#4a2222",
+      "line-style": "dashed",
+      "opacity": 0.3,
+    } as cytoscape.Css.Edge,
+  },
 ];
 
 function App() {
@@ -132,8 +373,7 @@ function App() {
   const [contentError, setContentError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("preview");
 
-  const [graphNodes, setGraphNodes] = useState<WikiGraphNode[]>([]);
-  const [graphEdges, setGraphEdges] = useState<WikiGraphEdge[]>([]);
+  const [wikiGraph, setWikiGraph] = useState<WikiGraph | null>(null);
   const [graphLoading, setGraphLoading] = useState(false);
   const [graphError, setGraphError] = useState<string | null>(null);
   const [graphReady, setGraphReady] = useState(false);
@@ -141,7 +381,6 @@ function App() {
   const graphContainerRef = useRef<HTMLDivElement | null>(null);
   const cyRef = useRef<cytoscape.Core | null>(null);
 
-  // Load note list on mount
   useEffect(() => {
     invoke<MarkdownFile[]>("list_markdown_files")
       .then((files) => { setNotes(files); setLoading(false); })
@@ -158,51 +397,22 @@ function App() {
       .catch((err) => { setContentError(String(err)); setContentLoading(false); });
   }, []);
 
-  // Build graph data the first time the user opens the graph view
   useEffect(() => {
     if (viewMode !== "graph" || graphReady || graphLoading || notes.length === 0) return;
 
     setGraphLoading(true);
     setGraphError(null);
 
-    const noteIndex = new Map<string, string>();
-    notes.forEach((n) => {
-      noteIndex.set(n.title.toLowerCase(), n.relativePath);
-      const filename = n.relativePath.toLowerCase().replace(/\.md$/, "").split("/").pop() ?? "";
-      if (filename) noteIndex.set(filename, n.relativePath);
-    });
-
     Promise.all(
       notes.map((note) =>
         invoke<string>("read_markdown_file", { relativePath: note.relativePath })
-          .then((content) => ({ note, content }))
-          .catch(() => ({ note, content: "" }))
+          .then((content) => [note.relativePath, content] as [string, string])
+          .catch(() => [note.relativePath, ""] as [string, string])
       )
-    ).then((results) => {
-      const nodes: WikiGraphNode[] = notes.map((n) => ({
-        id: sanitizeId(n.relativePath),
-        label: n.title,
-        folder: n.folder.split("/")[0] || "notes",
-        relativePath: n.relativePath,
-      }));
-
-      const seen = new Set<string>();
-      const edges: WikiGraphEdge[] = [];
-
-      results.forEach(({ note, content }) => {
-        extractWikilinks(content).forEach((target) => {
-          const resolvedPath = noteIndex.get(target.toLowerCase());
-          if (!resolvedPath || resolvedPath === note.relativePath) return;
-          const key = `${note.relativePath}→${resolvedPath}`;
-          if (!seen.has(key)) {
-            seen.add(key);
-            edges.push({ source: sanitizeId(note.relativePath), target: sanitizeId(resolvedPath) });
-          }
-        });
-      });
-
-      setGraphNodes(nodes);
-      setGraphEdges(edges);
+    ).then((pairs) => {
+      const contentMap = new Map<string, string>(pairs);
+      const graph = buildWikiGraph(notes, contentMap);
+      setWikiGraph(graph);
       setGraphReady(true);
       setGraphLoading(false);
     }).catch((err) => {
@@ -211,18 +421,29 @@ function App() {
     });
   }, [viewMode, notes, graphReady, graphLoading]);
 
-  // Initialize Cytoscape once graph data is ready and container is in the DOM
   useEffect(() => {
-    if (viewMode !== "graph" || !graphReady || !graphContainerRef.current) return;
+    if (viewMode !== "graph" || !graphReady || !wikiGraph || !graphContainerRef.current) return;
 
     cyRef.current?.destroy();
 
     const elements: cytoscape.ElementDefinition[] = [
-      ...graphNodes.map((n) => ({
-        data: { id: n.id, label: n.label, folder: n.folder, relativePath: n.relativePath },
+      ...wikiGraph.nodes.map((n) => ({
+        data: {
+          id: n.id,
+          label: n.title,
+          folder: n.folder,
+          relativePath: n.relativePath,
+          nodeType: !n.exists ? "missing" : n.isOrphan ? "orphan" : "existing",
+          exists: n.exists,
+        },
       })),
-      ...graphEdges.map((e, i) => ({
-        data: { id: `e${i}`, source: e.source, target: e.target },
+      ...wikiGraph.edges.map((e) => ({
+        data: {
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          edgeType: e.isBroken ? "broken" : "wikilink",
+        },
       })),
     ];
 
@@ -246,14 +467,11 @@ function App() {
       } as unknown as cytoscape.LayoutOptions,
     });
 
-    cy.on("mouseover", "node", (evt) => {
-      evt.target.addClass("nw-hovered");
-    });
-    cy.on("mouseout", "node", (evt) => {
-      evt.target.removeClass("nw-hovered");
-    });
+    cy.on("mouseover", "node", (evt) => evt.target.addClass("nw-hovered"));
+    cy.on("mouseout", "node", (evt) => evt.target.removeClass("nw-hovered"));
 
     cy.on("tap", "node", (evt) => {
+      if (!evt.target.data("exists")) return;
       const relPath: string = evt.target.data("relativePath");
       const note = notes.find((n) => n.relativePath === relPath);
       if (note) {
@@ -265,9 +483,8 @@ function App() {
 
     cyRef.current = cy;
     return () => { cy.destroy(); cyRef.current = null; };
-  }, [viewMode, graphReady, graphNodes, graphEdges, notes, handleNoteClick]);
+  }, [viewMode, graphReady, wikiGraph, notes, handleNoteClick]);
 
-  // Keep selected node highlighted when note changes from outside the graph
   useEffect(() => {
     if (!cyRef.current || !selectedNote) return;
     cyRef.current.nodes().removeClass("nw-selected");
@@ -313,7 +530,6 @@ function App() {
           </section>
 
           <section className="nw-viewer">
-            {/* Header — always visible */}
             <div className="nw-viewer-header">
               <span className="nw-viewer-title">
                 {viewMode === "graph" ? "Grafo de la wiki" : (selectedNote?.title ?? "—")}
@@ -338,10 +554,18 @@ function App() {
                   Grafo
                 </button>
               </div>
-              {viewMode === "graph" && graphReady && (
+              {viewMode === "graph" && graphReady && wikiGraph && (
                 <>
                   <span className="nw-graph-summary">
-                    {graphNodes.length} nodos · {graphEdges.length} enlaces
+                    {wikiGraph.nodes.filter(n => n.exists).length} nodos
+                    {" · "}
+                    {wikiGraph.edges.filter(e => !e.isBroken).length} enlaces
+                    {wikiGraph.orphanNodes.length > 0 && (
+                      <> · <span className="nw-graph-orphans">{wikiGraph.orphanNodes.length} huérfanas</span></>
+                    )}
+                    {wikiGraph.brokenLinks.length > 0 && (
+                      <> · <span className="nw-graph-broken">{wikiGraph.brokenLinks.length} rotos</span></>
+                    )}
                   </span>
                   <button
                     className="nw-view-btn"
@@ -356,7 +580,6 @@ function App() {
               )}
             </div>
 
-            {/* Graph view */}
             {viewMode === "graph" && (
               <>
                 {graphLoading && <p className="nw-viewer-loading">Construyendo grafo...</p>}
@@ -367,12 +590,10 @@ function App() {
               </>
             )}
 
-            {/* Preview / Raw — no note selected */}
             {viewMode !== "graph" && !selectedNote && (
               <p className="nw-viewer-empty">Seleccioná una nota para ver su contenido.</p>
             )}
 
-            {/* Preview / Raw — note selected */}
             {viewMode !== "graph" && selectedNote && (
               <>
                 {contentLoading && <p className="nw-viewer-loading">Cargando contenido...</p>}

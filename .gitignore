@@ -32,3 +32,6 @@ D:/NebulosaWiki/
 NebulosaWiki/
 .nebulosa/backups/
 .nebulosa/logs/
+
+# Claude Code local settings
+.claude/settings.local.json

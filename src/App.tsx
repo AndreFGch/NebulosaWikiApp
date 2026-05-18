@@ -1,19 +1,36 @@
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
-const features = [
-  { icon: "📄", title: "Markdown local", desc: "Tus notas son archivos .md reales, sin base de datos." },
-  { icon: "🔗", title: "Backlinks y wikilinks", desc: "Conecta notas con [[wikilinks]] y navega hacia atrás." },
-  { icon: "🕸️", title: "Grafo visual", desc: "Explora relaciones entre notas en un grafo interactivo." },
-  { icon: "🤖", title: "Memoria para Claude Code", desc: "El repositorio está diseñado para ser navegable por Claude." },
-];
+interface MarkdownFile {
+  title: string;
+  path: string;
+  relativePath: string;
+  folder: string;
+}
 
 function App() {
+  const [notes, setNotes] = useState<MarkdownFile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    invoke<MarkdownFile[]>("list_markdown_files")
+      .then((files) => {
+        setNotes(files);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(String(err));
+        setLoading(false);
+      });
+  }, []);
+
   return (
     <main className="nw-container">
       <header className="nw-header">
         <h1 className="nw-title">Nebulosa Wiki</h1>
         <p className="nw-subtitle">Wiki Markdown local, portable y preparada para Claude Code.</p>
-        <span className="nw-badge">MVP inicial en construcción</span>
       </header>
 
       <section className="nw-info">
@@ -21,15 +38,27 @@ function App() {
         <code className="nw-path">D:\NebulosaWiki</code>
       </section>
 
-      <section className="nw-grid">
-        {features.map((f) => (
-          <div className="nw-card" key={f.title}>
-            <span className="nw-card-icon">{f.icon}</span>
-            <h2 className="nw-card-title">{f.title}</h2>
-            <p className="nw-card-desc">{f.desc}</p>
-          </div>
-        ))}
+      <section className="nw-status">
+        {loading && <span className="nw-status-loading">Cargando notas...</span>}
+        {error && <span className="nw-status-error">Error: {error}</span>}
+        {!loading && !error && (
+          <span className="nw-status-ok">{notes.length} notas encontradas</span>
+        )}
       </section>
+
+      {!loading && !error && notes.length > 0 && (
+        <section className="nw-notes">
+          <ul className="nw-note-list">
+            {notes.map((note) => (
+              <li className="nw-note-item" key={note.relativePath}>
+                <span className="nw-note-folder">{note.folder || "/"}</span>
+                <span className="nw-note-title">{note.title}</span>
+                <code className="nw-note-path">{note.relativePath}</code>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </main>
   );
 }

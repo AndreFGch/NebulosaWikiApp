@@ -10,15 +10,18 @@
 
   --bg: #0d0f14;
   --surface: #161922;
+  --surface-hover: #1c2030;
   --border: #252a36;
   --accent: #7c6af7;
   --accent-dim: #4e4499;
   --text: #e2e4ee;
   --text-muted: #7c8099;
+  --text-dim: #4e5268;
   --badge-bg: #1e2235;
-  --badge-text: #a89df5;
   --code-bg: #1a1d2e;
   --code-text: #c9d1ff;
+  --ok: #4ade80;
+  --error: #f87171;
 }
 
 *,
@@ -35,48 +38,33 @@ body {
   min-height: 100vh;
 }
 
+/* Layout */
 .nw-container {
   max-width: 860px;
   margin: 0 auto;
-  padding: 60px 24px 80px;
+  padding: 48px 24px 80px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 40px;
+  gap: 28px;
 }
 
 /* Header */
 .nw-header {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  text-align: center;
+  gap: 8px;
 }
 
 .nw-title {
-  font-size: 2.6rem;
+  font-size: 2rem;
   font-weight: 700;
   letter-spacing: -0.5px;
   color: var(--text);
 }
 
 .nw-subtitle {
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   color: var(--text-muted);
-  max-width: 480px;
-}
-
-.nw-badge {
-  display: inline-block;
-  background: var(--badge-bg);
-  color: var(--badge-text);
-  border: 1px solid var(--accent-dim);
-  border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 500;
-  padding: 4px 14px;
-  letter-spacing: 0.3px;
 }
 
 /* Info bar */
@@ -87,73 +75,125 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 12px 20px;
+  padding: 10px 16px;
 }
 
 .nw-info-label {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  white-space: nowrap;
 }
 
 .nw-path {
   font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   background: var(--code-bg);
   color: var(--code-text);
-  padding: 4px 10px;
+  padding: 3px 10px;
   border-radius: 6px;
   border: 1px solid var(--border);
 }
 
-/* Feature grid */
-.nw-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  width: 100%;
+/* Status */
+.nw-status {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
 }
 
-.nw-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 24px 22px;
+.nw-status-loading {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.nw-status-error {
+  font-size: 0.88rem;
+  color: var(--error);
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: 6px;
+  padding: 6px 12px;
+}
+
+.nw-status-ok {
+  font-size: 0.88rem;
+  color: var(--ok);
+  background: rgba(74, 222, 128, 0.07);
+  border: 1px solid rgba(74, 222, 128, 0.18);
+  border-radius: 6px;
+  padding: 6px 12px;
+}
+
+/* Notes section */
+.nw-notes {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.nw-card:hover {
+.nw-note-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nw-note-item {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 16px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.nw-note-item:hover {
+  background: var(--surface-hover);
   border-color: var(--accent-dim);
-  box-shadow: 0 0 0 1px var(--accent-dim), 0 4px 20px rgba(124, 106, 247, 0.08);
 }
 
-.nw-card-icon {
-  font-size: 1.6rem;
-  line-height: 1;
+.nw-note-folder {
+  font-size: 0.78rem;
+  color: var(--accent);
+  text-transform: lowercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.nw-card-title {
-  font-size: 1rem;
-  font-weight: 600;
+.nw-note-title {
+  font-size: 0.9rem;
+  font-weight: 500;
   color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.nw-card-desc {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  line-height: 1.55;
+.nw-note-path {
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  white-space: nowrap;
 }
 
-@media (max-width: 560px) {
-  .nw-grid {
+@media (max-width: 600px) {
+  .nw-note-item {
     grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .nw-note-path {
+    display: none;
   }
 
   .nw-title {
-    font-size: 2rem;
+    font-size: 1.6rem;
   }
 }

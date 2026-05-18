@@ -45,14 +45,10 @@ interface WikiGraph {
   folders: string[];
 }
 
-type ViewMode = "preview" | "raw" | "graph";
+type DetailMode = "preview" | "raw";
 
 function sanitizeId(s: string): string {
   return s.replace(/[^a-zA-Z0-9]/g, "_");
-}
-
-function normalizeTitle(s: string): string {
-  return s.trim().toLowerCase();
 }
 
 function normalizeKey(s: string): string {
@@ -371,7 +367,7 @@ function App() {
   const [noteContent, setNoteContent] = useState<string>("");
   const [contentLoading, setContentLoading] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("preview");
+  const [detailMode, setDetailMode] = useState<DetailMode>("preview");
 
   const [wikiGraph, setWikiGraph] = useState<WikiGraph | null>(null);
   const [graphLoading, setGraphLoading] = useState(false);
@@ -398,7 +394,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (viewMode !== "graph" || graphReady || graphLoading || notes.length === 0) return;
+    if (graphReady || graphLoading || notes.length === 0) return;
 
     setGraphLoading(true);
     setGraphError(null);
@@ -419,10 +415,10 @@ function App() {
       setGraphError(String(err));
       setGraphLoading(false);
     });
-  }, [viewMode, notes, graphReady, graphLoading]);
+  }, [notes, graphReady, graphLoading]);
 
   useEffect(() => {
-    if (viewMode !== "graph" || !graphReady || !wikiGraph || !graphContainerRef.current) return;
+    if (!graphReady || !wikiGraph || !graphContainerRef.current) return;
 
     cyRef.current?.destroy();
 
@@ -483,7 +479,7 @@ function App() {
 
     cyRef.current = cy;
     return () => { cy.destroy(); cyRef.current = null; };
-  }, [viewMode, graphReady, wikiGraph, notes, handleNoteClick]);
+  }, [graphReady, wikiGraph, notes, handleNoteClick]);
 
   useEffect(() => {
     if (!cyRef.current || !selectedNote) return;
@@ -492,138 +488,114 @@ function App() {
   }, [selectedNote]);
 
   return (
-    <main className="nw-container">
-      <header className="nw-header">
-        <h1 className="nw-title">Nebulosa Wiki</h1>
-        <p className="nw-subtitle">Wiki Markdown local, portable y preparada para Claude Code.</p>
-      </header>
-
-      <section className="nw-info">
-        <span className="nw-info-label">Carpeta wiki</span>
-        <code className="nw-path">D:\NebulosaWiki</code>
-      </section>
-
-      <section className="nw-status">
-        {loading && <span className="nw-status-loading">Cargando notas...</span>}
-        {error && <span className="nw-status-error">Error: {error}</span>}
-        {!loading && !error && (
-          <span className="nw-status-ok">{notes.length} notas encontradas</span>
-        )}
-      </section>
-
-      {!loading && !error && notes.length > 0 && (
-        <div className="nw-workspace">
-          <section className="nw-notes">
-            <ul className="nw-note-list">
-              {notes.map((note) => (
-                <li
-                  className={`nw-note-item${selectedNote?.relativePath === note.relativePath ? " nw-note-item--selected" : ""}`}
-                  key={note.relativePath}
-                  onClick={() => handleNoteClick(note)}
-                >
-                  <span className="nw-note-folder">{note.folder || "/"}</span>
-                  <span className="nw-note-title">{note.title}</span>
-                  <code className="nw-note-path">{note.relativePath}</code>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <section className="nw-viewer">
-            <div className="nw-viewer-header">
-              <span className="nw-viewer-title">
-                {viewMode === "graph" ? "Grafo de la wiki" : (selectedNote?.title ?? "—")}
-              </span>
-              <div className="nw-view-toggle">
-                <button
-                  className={`nw-view-btn${viewMode === "preview" ? " nw-view-btn--active" : ""}`}
-                  onClick={() => setViewMode("preview")}
-                >
-                  Preview
-                </button>
-                <button
-                  className={`nw-view-btn${viewMode === "raw" ? " nw-view-btn--active" : ""}`}
-                  onClick={() => setViewMode("raw")}
-                >
-                  Raw
-                </button>
-                <button
-                  className={`nw-view-btn${viewMode === "graph" ? " nw-view-btn--active" : ""}`}
-                  onClick={() => setViewMode("graph")}
-                >
-                  Grafo
-                </button>
-              </div>
-              {viewMode === "graph" && graphReady && wikiGraph && (
-                <>
-                  <span className="nw-graph-summary">
-                    {wikiGraph.nodes.filter(n => n.exists).length} nodos
-                    {" · "}
-                    {wikiGraph.edges.filter(e => !e.isBroken).length} enlaces
-                    {wikiGraph.orphanNodes.length > 0 && (
-                      <> · <span className="nw-graph-orphans">{wikiGraph.orphanNodes.length} huérfanas</span></>
-                    )}
-                    {wikiGraph.brokenLinks.length > 0 && (
-                      <> · <span className="nw-graph-broken">{wikiGraph.brokenLinks.length} rotos</span></>
-                    )}
-                  </span>
-                  <button
-                    className="nw-view-btn"
-                    onClick={() => cyRef.current?.fit(cyRef.current.elements(), 60)}
-                  >
-                    Centrar
-                  </button>
-                </>
-              )}
-              {viewMode !== "graph" && selectedNote && (
-                <code className="nw-viewer-path">{selectedNote.relativePath}</code>
-              )}
-            </div>
-
-            {viewMode === "graph" && (
-              <>
-                {graphLoading && <p className="nw-viewer-loading">Construyendo grafo...</p>}
-                {graphError && <p className="nw-viewer-error">Error: {graphError}</p>}
-                {!graphLoading && !graphError && (
-                  <div ref={graphContainerRef} className="nw-graph-container" />
-                )}
-              </>
-            )}
-
-            {viewMode !== "graph" && !selectedNote && (
-              <p className="nw-viewer-empty">Seleccioná una nota para ver su contenido.</p>
-            )}
-
-            {viewMode !== "graph" && selectedNote && (
-              <>
-                {contentLoading && <p className="nw-viewer-loading">Cargando contenido...</p>}
-                {contentError && <p className="nw-viewer-error">Error: {contentError}</p>}
-                {!contentLoading && !contentError && viewMode === "preview" && (
-                  <div className="nw-markdown-preview">
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        a: ({ href, children }) => {
-                          if (href?.startsWith("#wikilink/")) {
-                            return <span className="nw-wikilink">{children}</span>;
-                          }
-                          return <a href={href} target="_blank" rel="noreferrer">{children}</a>;
-                        },
-                      }}
-                    >
-                      {preprocessWikilinks(stripFrontmatter(noteContent))}
-                    </ReactMarkdown>
-                  </div>
-                )}
-                {!contentLoading && !contentError && viewMode === "raw" && (
-                  <pre className="nw-viewer-content">{noteContent}</pre>
-                )}
-              </>
-            )}
-          </section>
+    <div className="nw-shell">
+      <aside className="nw-sidebar">
+        <div className="nw-sidebar-header">
+          <span className="nw-title">Nebulosa Wiki</span>
+          <span className={`nw-status-badge${error ? " nw-status-badge--error" : !loading ? " nw-status-badge--ok" : ""}`}>
+            {loading && "Cargando..."}
+            {error && "Error"}
+            {!loading && !error && `${notes.length} notas`}
+          </span>
         </div>
-      )}
-    </main>
+        {error && <p className="nw-sidebar-error">{error}</p>}
+        <ul className="nw-note-list">
+          {notes.map((note) => (
+            <li
+              className={`nw-note-item${selectedNote?.relativePath === note.relativePath ? " nw-note-item--selected" : ""}`}
+              key={note.relativePath}
+              onClick={() => handleNoteClick(note)}
+            >
+              <span className="nw-note-folder">{note.folder || "/"}</span>
+              <span className="nw-note-title">{note.title}</span>
+            </li>
+          ))}
+        </ul>
+      </aside>
+
+      <main className="nw-graph-panel">
+        <div className="nw-graph-header">
+          <span className="nw-graph-label">Grafo</span>
+          {wikiGraph && (
+            <span className="nw-graph-summary">
+              {wikiGraph.nodes.filter(n => n.exists).length} nodos
+              {" · "}
+              {wikiGraph.edges.filter(e => !e.isBroken).length} enlaces
+              {wikiGraph.orphanNodes.length > 0 && (
+                <> · <span className="nw-graph-orphans">{wikiGraph.orphanNodes.length} huérfanas</span></>
+              )}
+              {wikiGraph.brokenLinks.length > 0 && (
+                <> · <span className="nw-graph-broken">{wikiGraph.brokenLinks.length} rotos</span></>
+              )}
+            </span>
+          )}
+          {graphReady && (
+            <button
+              className="nw-view-btn"
+              onClick={() => cyRef.current?.fit(cyRef.current.elements(), 60)}
+            >
+              Centrar
+            </button>
+          )}
+        </div>
+        {graphLoading && <p className="nw-graph-status">Construyendo grafo...</p>}
+        {graphError && <p className="nw-graph-status nw-graph-status--error">Error: {graphError}</p>}
+        <div ref={graphContainerRef} className="nw-graph-container" />
+      </main>
+
+      <aside className="nw-detail-panel">
+        <div className="nw-detail-header">
+          <span className="nw-detail-title">{selectedNote?.title ?? "—"}</span>
+          {selectedNote && (
+            <div className="nw-view-toggle">
+              <button
+                className={`nw-view-btn${detailMode === "preview" ? " nw-view-btn--active" : ""}`}
+                onClick={() => setDetailMode("preview")}
+              >
+                Preview
+              </button>
+              <button
+                className={`nw-view-btn${detailMode === "raw" ? " nw-view-btn--active" : ""}`}
+                onClick={() => setDetailMode("raw")}
+              >
+                Raw
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="nw-detail-content">
+          {!selectedNote && (
+            <p className="nw-viewer-empty">Seleccioná un nodo en el grafo.</p>
+          )}
+          {selectedNote && contentLoading && (
+            <p className="nw-viewer-loading">Cargando...</p>
+          )}
+          {selectedNote && contentError && (
+            <p className="nw-viewer-error">Error: {contentError}</p>
+          )}
+          {selectedNote && !contentLoading && !contentError && detailMode === "preview" && (
+            <div className="nw-markdown-preview">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  a: ({ href, children }) => {
+                    if (href?.startsWith("#wikilink/")) {
+                      return <span className="nw-wikilink">{children}</span>;
+                    }
+                    return <a href={href} target="_blank" rel="noreferrer">{children}</a>;
+                  },
+                }}
+              >
+                {preprocessWikilinks(stripFrontmatter(noteContent))}
+              </ReactMarkdown>
+            </div>
+          )}
+          {selectedNote && !contentLoading && !contentError && detailMode === "raw" && (
+            <pre className="nw-viewer-content">{noteContent}</pre>
+          )}
+        </div>
+      </aside>
+    </div>
   );
 }
 

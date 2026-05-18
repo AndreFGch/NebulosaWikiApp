@@ -287,11 +287,12 @@ const GRAPH_STYLE: cytoscape.Stylesheet[] = [
       "text-valign": "bottom",
       "text-halign": "center",
       "text-margin-y": 4,
-      "width": 12,
-      "height": 12,
+      "width": 10,
+      "height": 10,
       "border-width": 0,
       "text-wrap": "ellipsis",
       "text-max-width": "80px",
+      "text-opacity": 0,
     },
   },
   ...Object.entries(FOLDER_COLORS).map(([folder, color]) => ({
@@ -305,9 +306,9 @@ const GRAPH_STYLE: cytoscape.Stylesheet[] = [
       "border-width": 1,
       "border-color": "#4a4a5e",
       "border-style": "dashed",
-      "width": 8,
-      "height": 8,
-      "opacity": 0.5,
+      "width": 7,
+      "height": 7,
+      "opacity": 0.4,
     } as cytoscape.Css.Node,
   },
   {
@@ -315,37 +316,39 @@ const GRAPH_STYLE: cytoscape.Stylesheet[] = [
     style: {
       "border-width": 1.5,
       "border-color": "#956030",
-      "opacity": 0.65,
+      "opacity": 0.6,
     } as cytoscape.Css.Node,
   },
   {
     selector: "node.nw-hovered",
     style: {
+      "text-opacity": 1,
       "color": "#9ea3be",
-      "font-size": "10px",
+      "font-size": "9px",
       "z-index": 10,
     },
   },
   {
     selector: "node.nw-selected",
     style: {
-      "width": 16,
-      "height": 16,
+      "width": 14,
+      "height": 14,
       "border-width": 2,
       "border-color": "#e2e4ee",
+      "text-opacity": 1,
       "color": "#e2e4ee",
-      "font-size": "11px",
+      "font-size": "10px",
       "z-index": 20,
     },
   },
   {
     selector: "edge",
     style: {
-      "width": 0.75,
-      "line-color": "#18203a",
+      "width": 0.6,
+      "line-color": "#1c2340",
       "target-arrow-shape": "none",
-      "curve-style": "bezier",
-      "opacity": 0.5,
+      "curve-style": "straight",
+      "opacity": 0.35,
     },
   },
   {
@@ -353,7 +356,7 @@ const GRAPH_STYLE: cytoscape.Stylesheet[] = [
     style: {
       "line-color": "#4a2222",
       "line-style": "dashed",
-      "opacity": 0.3,
+      "opacity": 0.2,
     } as cytoscape.Css.Edge,
   },
 ];
@@ -422,6 +425,13 @@ function App() {
 
     cyRef.current?.destroy();
 
+    // Global graph hides index edges to avoid hub collapse.
+    const indexNodeIds = new Set(
+      wikiGraph.nodes
+        .filter((n) => n.type === "indexes" || n.folder === "indexes")
+        .map((n) => n.id)
+    );
+
     const elements: cytoscape.ElementDefinition[] = [
       ...wikiGraph.nodes.map((n) => ({
         data: {
@@ -433,35 +443,49 @@ function App() {
           exists: n.exists,
         },
       })),
-      ...wikiGraph.edges.map((e) => ({
-        data: {
-          id: e.id,
-          source: e.source,
-          target: e.target,
-          edgeType: e.isBroken ? "broken" : "wikilink",
-        },
-      })),
+      ...wikiGraph.edges
+        .filter((e) => !indexNodeIds.has(e.source) && !indexNodeIds.has(e.target))
+        .map((e) => ({
+          data: {
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            edgeType: e.isBroken ? "broken" : "wikilink",
+          },
+        })),
     ];
 
     const cy = cytoscape({
       container: graphContainerRef.current,
       elements,
       style: GRAPH_STYLE,
-      layout: {
-        name: "cose",
-        animate: false,
-        fit: true,
-        padding: 60,
-        nodeRepulsion: 9000,
-        idealEdgeLength: 160,
-        edgeElasticity: 32,
-        gravity: 0.25,
-        numIter: 1000,
-        initialTemp: 200,
-        coolingFactor: 0.95,
-        minTemp: 1.0,
-      } as unknown as cytoscape.LayoutOptions,
     });
+
+    const layoutRun = cy.layout({
+      name: "cose",
+      animate: false,
+      fit: true,
+      padding: 80,
+      nodeRepulsion: 18000,
+      idealEdgeLength: 250,
+      edgeElasticity: 20,
+      gravity: 0.08,
+      numIter: 2500,
+      initialTemp: 300,
+      coolingFactor: 0.95,
+      minTemp: 1.0,
+    } as unknown as cytoscape.LayoutOptions);
+
+    layoutRun.on("layoutstop", () => {
+      cy.fit(cy.elements(), 90);
+      const z = cy.zoom();
+      if (z > 0.9) {
+        cy.zoom({ level: z * 0.8 });
+        cy.center();
+      }
+    });
+
+    layoutRun.run();
 
     cy.on("mouseover", "node", (evt) => evt.target.addClass("nw-hovered"));
     cy.on("mouseout", "node", (evt) => evt.target.removeClass("nw-hovered"));

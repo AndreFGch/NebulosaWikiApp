@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import "./App.css";
 
 interface MarkdownFile {
@@ -7,6 +9,18 @@ interface MarkdownFile {
   path: string;
   relativePath: string;
   folder: string;
+}
+
+type ViewMode = "preview" | "raw";
+
+function preprocessWikilinks(content: string): string {
+  return content
+    .replace(/\[\[([^\]|\n]+)\|([^\]\n]+)\]\]/g, (_, name, alias) =>
+      `[${alias.trim()}](#wikilink/${encodeURIComponent(name.trim())})`
+    )
+    .replace(/\[\[([^\]\n]+)\]\]/g, (_, name) =>
+      `[${name.trim()}](#wikilink/${encodeURIComponent(name.trim())})`
+    );
 }
 
 function App() {
@@ -18,6 +32,7 @@ function App() {
   const [noteContent, setNoteContent] = useState<string>("");
   const [contentLoading, setContentLoading] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("preview");
 
   useEffect(() => {
     invoke<MarkdownFile[]>("list_markdown_files")
@@ -93,6 +108,20 @@ function App() {
               <>
                 <div className="nw-viewer-header">
                   <span className="nw-viewer-title">{selectedNote.title}</span>
+                  <div className="nw-view-toggle">
+                    <button
+                      className={`nw-view-btn${viewMode === "preview" ? " nw-view-btn--active" : ""}`}
+                      onClick={() => setViewMode("preview")}
+                    >
+                      Preview
+                    </button>
+                    <button
+                      className={`nw-view-btn${viewMode === "raw" ? " nw-view-btn--active" : ""}`}
+                      onClick={() => setViewMode("raw")}
+                    >
+                      Raw
+                    </button>
+                  </div>
                   <code className="nw-viewer-path">{selectedNote.relativePath}</code>
                 </div>
                 {contentLoading && (
@@ -101,7 +130,24 @@ function App() {
                 {contentError && (
                   <p className="nw-viewer-error">Error: {contentError}</p>
                 )}
-                {!contentLoading && !contentError && (
+                {!contentLoading && !contentError && viewMode === "preview" && (
+                  <div className="nw-markdown-preview">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        a: ({ href, children }) => {
+                          if (href?.startsWith("#wikilink/")) {
+                            return <span className="nw-wikilink">{children}</span>;
+                          }
+                          return <a href={href} target="_blank" rel="noreferrer">{children}</a>;
+                        },
+                      }}
+                    >
+                      {preprocessWikilinks(noteContent)}
+                    </ReactMarkdown>
+                  </div>
+                )}
+                {!contentLoading && !contentError && viewMode === "raw" && (
                   <pre className="nw-viewer-content">{noteContent}</pre>
                 )}
               </>

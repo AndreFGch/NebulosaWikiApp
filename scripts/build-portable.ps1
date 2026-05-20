@@ -14,7 +14,15 @@ Write-Host ""
 # 1. Build release
 Write-Host "1. Compilando release..." -ForegroundColor Yellow
 Set-Location $RepoRoot
+
+# Sanitizar rutas de compilacion del binario (no exponer paths locales en strings del exe)
+$env:RUSTFLAGS = "--remap-path-prefix=$RepoRoot=. --remap-path-prefix=$env:USERPROFILE=C:\Users\user"
+Write-Host "   RUSTFLAGS: $env:RUSTFLAGS" -ForegroundColor DarkGray
+
 npm run tauri:build
+
+# Limpiar RUSTFLAGS para no afectar herramientas posteriores
+$env:RUSTFLAGS = ""
 
 # 2. Verificar exe
 if (-not (Test-Path $ExePath)) {

@@ -37,3 +37,7 @@ NebulosaWiki/
 .claude/settings.local.json
 
 .codegraph/
+
+# Portable app data y releases
+data/
+releases/

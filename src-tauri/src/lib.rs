@@ -6,27 +6,52 @@ struct WikiConfig {
     wiki_root: String,
 }
 
-fn config_file_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    use tauri::Manager;
-    let dir = app
-        .path()
-        .app_config_dir()
-        .map_err(|e| format!("Error al obtener directorio de configuración: {}", e))?;
-    std::fs::create_dir_all(&dir)
-        .map_err(|e| format!("Error al crear directorio de configuración: {}", e))?;
+fn portable_data_dir() -> Result<std::path::PathBuf, String> {
+    #[cfg(debug_assertions)]
+    let base = {
+        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        manifest_dir
+            .parent()
+            .ok_or_else(|| "No se pudo obtener la raíz del proyecto.".to_string())?
+            .to_path_buf()
+    };
+    #[cfg(not(debug_assertions))]
+    let base = {
+        let exe = std::env::current_exe()
+            .map_err(|e| format!("Error al obtener ruta del ejecutable: {}", e))?;
+        exe.parent()
+            .ok_or_else(|| "No se pudo obtener la carpeta del ejecutable.".to_string())?
+            .to_path_buf()
+    };
+    let data = base.join("data");
+    std::fs::create_dir_all(&data)
+        .map_err(|e| format!("Error al crear data/: {}", e))?;
+    Ok(data)
+}
+
+fn config_file_path(_app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    let dir = portable_data_dir()?;
     Ok(dir.join("settings.json"))
 }
 
 fn get_configured_wiki_root(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    const DEFAULT: &str = r"D:\NebulosaWiki";
     let config_path = config_file_path(app)?;
+    let default_wiki = || -> std::path::PathBuf {
+        portable_data_dir()
+            .map(|d| d.join("wiki"))
+            .unwrap_or_else(|_| std::path::PathBuf::from("data/wiki"))
+    };
     if !config_path.exists() {
-        return Ok(std::path::PathBuf::from(DEFAULT));
+        let wiki = default_wiki();
+        std::fs::create_dir_all(&wiki)
+            .map_err(|e| format!("Error al crear wiki/: {}", e))?;
+        return Ok(wiki);
     }
     let text = std::fs::read_to_string(&config_path)
         .map_err(|e| format!("Error al leer configuración: {}", e))?;
+    let fallback = default_wiki().to_string_lossy().to_string();
     let cfg: WikiConfig = serde_json::from_str(&text)
-        .unwrap_or(WikiConfig { wiki_root: DEFAULT.to_string() });
+        .unwrap_or(WikiConfig { wiki_root: fallback });
     Ok(std::path::PathBuf::from(cfg.wiki_root))
 }
 
@@ -700,6 +725,24 @@ fn set_wiki_root(app_handle: tauri::AppHandle, path: String) -> Result<String, S
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            let data_dir = portable_data_dir()
+                .expect("No se pudo determinar el directorio portable de datos");
+            let webview_dir = data_dir.join("webview");
+            std::fs::create_dir_all(&webview_dir)
+                .expect("No se pudo crear el directorio de datos de WebView");
+            tauri::WebviewWindowBuilder::new(
+                app.handle(),
+                "main",
+                tauri::WebviewUrl::App("index.html".into()),
+            )
+            .title("Nebulosa Wiki")
+            .inner_size(800.0, 600.0)
+            .data_directory(webview_dir)
+            .build()
+            .expect("No se pudo crear la ventana principal");
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             list_markdown_files,
             read_markdown_file,

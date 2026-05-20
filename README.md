@@ -1,44 +1,133 @@
 # Nebulosa Wiki
 
-Aplicación local-first, portable y visual para gestionar una wiki Markdown en Windows. Pensada para humanos y para Claude Code.
+Nebulosa Wiki es una aplicación portable local-first para gestionar una wiki Markdown personal en Windows.
+
+Está pensada para organizar conocimiento personal, notas conectadas, documentación técnica, sesiones de trabajo y flujos de integración con herramientas como Claude Code.
 
 ---
 
-## Funcionalidades actuales
+## Descargar
 
-- **Notas Markdown** — crear, editar, guardar y eliminar notas con frontmatter
-- **Plantillas** — note, project, source, skill, session, index
-- **Nota diaria y nota rápida** con un click
-- **Grafo visual** con Cytoscape.js — nodos por carpeta, edges por wikilinks
-  - Filtros por tipo de nota (notes, projects, sources, sessions, skills, indexes, missing)
-  - Física interactiva, centrado, controles de vista
-- **Wikilinks** `[[Nombre de nota]]` — navegables desde el Preview
-  - Click en enlace faltante crea la nota directamente
-- **Backlinks** — panel de relaciones con entrantes y salientes
-- **Búsqueda** por título, ruta y tag desde el sidebar
-  - Filtro por tag (`tag:nombre` o chips en sidebar)
-  - Búsqueda full-text en contenido (ejecutada en Rust)
-- **Historial de recientes** — últimas 6 notas abiertas, persistido en localStorage
-- **Importar** archivo Markdown externo a la wiki
-- **Exportar** nota individual a ruta del sistema
-- **Exportar wiki** completa a carpeta destino
-- **Backup de wiki** — copia con timestamp a carpeta base elegida
-- **Paleta de comandos** Ctrl+P
-- **Toasts** de feedback para operaciones clave
-- **Ruta de wiki configurable** desde Ajustes (persiste en JSON local de Tauri)
+La versión portable está disponible en la sección de releases:
+
+[Descargar Nebulosa Wiki Portable](https://github.com/AndreFGch/NebulosaWikiApp/releases/latest)
+
+Archivo recomendado:
+
+```txt
+NebulosaWiki-Portable-v0.1.0.zip
+```
+
+No descargués los archivos automáticos de GitHub llamados `Source code (zip)` o `Source code (tar.gz)` si solo querés usar la aplicación. Esos archivos son para desarrolladores.
 
 ---
 
-## Requisitos
+## Cómo usar la versión portable
 
-- [Node.js](https://nodejs.org/) v18 o superior
-- [Rust y Cargo](https://rustup.rs/)
-- [Visual Studio Build Tools 2022](https://visualstudio.microsoft.com/visual-cpp-build-tools/) — componente **Desarrollo para el escritorio con C++**
-- WebView2 Runtime (incluido en Windows 11; en Windows 10 puede requerirse instalación manual)
+1. Descargar `NebulosaWiki-Portable-v0.1.0.zip`.
+2. Descomprimirlo en cualquier carpeta, USB, disco externo o nube.
+3. Abrir la carpeta `NebulosaWiki-Portable`.
+4. Ejecutar `Nebulosa Wiki.exe`.
+5. Empezar a crear y organizar notas Markdown.
+
+La aplicación no requiere instalación tradicional.
 
 ---
 
-## Instalación local
+## Modo portable
+
+Nebulosa Wiki está preparada para funcionar como aplicación portable:
+
+- No requiere instalación tradicional.
+- No usa `Program Files`.
+- La configuración se guarda dentro de la misma carpeta portable.
+- La wiki por defecto se guarda dentro de la misma carpeta portable.
+- Los datos locales del WebView se guardan dentro de la misma carpeta portable.
+- La carpeta de la wiki se puede cambiar desde Ajustes.
+
+Estructura esperada después de ejecutar la app:
+
+```txt
+NebulosaWiki-Portable/
+├─ Nebulosa Wiki.exe
+├─ README-PORTABLE.txt
+└─ data/
+   ├─ settings.json
+   ├─ wiki/
+   └─ webview/
+```
+
+---
+
+## Funcionalidades
+
+- Crear, editar, guardar y eliminar notas Markdown.
+- Plantillas para notas:
+  - nota simple
+  - proyecto
+  - fuente
+  - skill
+  - sesión
+  - índice
+- Nota diaria y nota rápida.
+- Grafo visual de notas con Cytoscape.js.
+- Filtros del grafo por tipo de nota.
+- Wikilinks estilo `[[Nombre de nota]]`.
+- Crear notas desde enlaces faltantes.
+- Backlinks y enlaces salientes.
+- Búsqueda por título, ruta, tag y contenido.
+- Filtro por tags desde el sidebar.
+- Historial de notas recientes.
+- Importar archivos Markdown.
+- Exportar nota individual.
+- Exportar wiki completa.
+- Backup manual de la wiki.
+- Paleta de comandos con `Ctrl + P`.
+- Toasts de confirmación para operaciones importantes.
+- Ruta de wiki configurable desde Ajustes.
+
+---
+
+## Integración con Claude Code
+
+Nebulosa Wiki puede usarse como base de conocimiento Markdown para trabajar con Claude Code.
+
+Un flujo posible:
+
+1. Crear o mantener una wiki local en Markdown.
+2. Abrir esa carpeta con Claude Code.
+3. Usar un archivo `CLAUDE.md` dentro de la wiki para definir reglas de trabajo.
+4. Documentar decisiones, sesiones, prompts, skills y arquitectura.
+5. Usar Nebulosa Wiki para visualizar relaciones, backlinks y grafo.
+
+Ejemplo:
+
+```powershell
+cd "ruta-de-tu-wiki"
+claude
+```
+
+---
+
+## Requisitos para usar la app
+
+- Windows 10 o Windows 11 de 64 bits.
+- Microsoft Edge WebView2 Runtime disponible en el sistema.
+
+En Windows 11 normalmente WebView2 ya viene incluido. En algunos equipos con Windows 10 podría ser necesario instalar WebView2 Runtime.
+
+---
+
+## Desarrollo local
+
+Para trabajar con el código fuente necesitás:
+
+- Node.js v18 o superior.
+- Rust y Cargo.
+- Visual Studio Build Tools 2022 con el componente **Desarrollo para el escritorio con C++**.
+- WebView2 Runtime.
+
+Clonar el repositorio:
 
 ```bash
 git clone https://github.com/AndreFGch/NebulosaWikiApp.git
@@ -46,27 +135,23 @@ cd NebulosaWikiApp
 npm install
 ```
 
----
-
-## Ejecutar en desarrollo
+Ejecutar en desarrollo:
 
 ```bash
 npm run tauri:dev
 ```
 
-La primera compilación de Rust puede tardar varios minutos. Las siguientes son incrementales.
+Compilar versión release:
 
----
-
-## Carpeta wiki local
-
-La ruta por defecto es:
-
-```
-D:\NebulosaWiki
+```bash
+npm run tauri:build
 ```
 
-Se puede cambiar desde el panel de Ajustes dentro de la app. La ruta elegida se persiste en un archivo de configuración JSON local gestionado por Tauri. Los archivos `.md` son la fuente de verdad — no hay base de datos externa.
+Generar ZIP portable:
+
+```powershell
+.\scripts\build-portable.ps1
+```
 
 ---
 
@@ -74,22 +159,66 @@ Se puede cambiar desde el panel de Ajustes dentro de la app. La ruta elegida se 
 
 | Capa | Tecnología |
 |---|---|
-| Shell de escritorio | Tauri 2 (Rust + WebView2) |
+| Shell de escritorio | Tauri 2 |
+| Backend local | Rust |
 | UI | React 19 + TypeScript |
 | Grafo visual | Cytoscape.js |
-| Búsqueda full-text | Rust (búsqueda en contenido de archivos) |
-| Renderizado Markdown | react-markdown + remark-gfm |
-| Configuración | JSON local vía Tauri |
+| Markdown | react-markdown + remark-gfm |
+| Búsqueda full-text | Rust |
+| Configuración | JSON local |
+| Distribución | ZIP portable para Windows |
 
-Ver decisión completa en [`ADR-0001.md`](ADR-0001.md).
+Ver decisión técnica en [`ADR-0001.md`](ADR-0001.md).
+
+---
+
+## Estructura general
+
+```txt
+src/                 UI React + TypeScript
+src-tauri/           Backend Tauri/Rust
+scripts/             Scripts de desarrollo y build portable
+CLAUDE.md            Reglas operativas para Claude Code
+ADR-0001.md          Decisión arquitectónica inicial
+README.md            Documentación principal
+```
 
 ---
 
 ## Forma de trabajo
 
-- Cambios pequeños, un paso a la vez
-- Máximo 3–5 archivos modificados por iteración
-- Reportar siempre los archivos tocados
-- No tocar datos reales de la wiki sin permiso explícito
+Este proyecto se desarrolló con una dinámica de cambios pequeños y controlados:
 
-Ver reglas completas en [`CLAUDE.md`](CLAUDE.md).
+- Cambios incrementales.
+- Validación con `npx tsc --noEmit`.
+- Validación con `cargo check`.
+- Separación entre app portable, código fuente y wiki personal.
+- Cuidado de rutas locales y datos sensibles antes de publicar releases.
+
+Ver reglas de trabajo en [`CLAUDE.md`](CLAUDE.md).
+
+---
+
+## Estado
+
+Versión actual:
+
+```txt
+v0.1.0 Portable
+```
+
+Primera versión funcional publicada como aplicación portable para Windows.
+
+---
+
+## Roadmap
+
+Ideas futuras:
+
+- Selector nativo de carpetas.
+- Backup comprimido en ZIP.
+- Mejoras visuales del grafo.
+- Mejoras de rendimiento en bundles grandes.
+- Configuración visual persistente.
+- Más plantillas de notas.
+- Integración más guiada con Claude Code.

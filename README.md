@@ -1,38 +1,40 @@
 # Nebulosa Wiki
 
-Nebulosa Wiki es una aplicación local-first, portable y visual para manejar una wiki Markdown local en Windows, pensada para humanos y para Claude Code.
+Aplicación local-first, portable y visual para gestionar una wiki Markdown en Windows. Pensada para humanos y para Claude Code.
 
 ---
 
-## Estado actual
+## Funcionalidades actuales
 
-- Base Tauri + React + TypeScript integrada
-- Pantalla inicial propia (sin logos genéricos de Tauri/Vite/React)
-- Estructura `.claude/` lista para Claude Code
-- Documentación inicial completa (`ADR-0001.md`, `CLAUDE.md`)
-- Todavía no hay lectura real de archivos Markdown
-- Todavía no hay grafo visual ni detección de wikilinks
-
----
-
-## Objetivo
-
-- Leer y escribir notas Markdown locales
-- Detectar wikilinks (`[[Nombre de nota]]`)
-- Detectar backlinks entre notas
-- Generar índice local de la wiki
-- Mostrar grafo visual de conexiones
-- Servir como memoria persistente para Claude Code
+- **Notas Markdown** — crear, editar, guardar y eliminar notas con frontmatter
+- **Plantillas** — note, project, source, skill, session, index
+- **Nota diaria y nota rápida** con un click
+- **Grafo visual** con Cytoscape.js — nodos por carpeta, edges por wikilinks
+  - Filtros por tipo de nota (notes, projects, sources, sessions, skills, indexes, missing)
+  - Física interactiva, centrado, controles de vista
+- **Wikilinks** `[[Nombre de nota]]` — navegables desde el Preview
+  - Click en enlace faltante crea la nota directamente
+- **Backlinks** — panel de relaciones con entrantes y salientes
+- **Búsqueda** por título, ruta y tag desde el sidebar
+  - Filtro por tag (`tag:nombre` o chips en sidebar)
+  - Búsqueda full-text en contenido (ejecutada en Rust)
+- **Historial de recientes** — últimas 6 notas abiertas, persistido en localStorage
+- **Importar** archivo Markdown externo a la wiki
+- **Exportar** nota individual a ruta del sistema
+- **Exportar wiki** completa a carpeta destino
+- **Backup de wiki** — copia con timestamp a carpeta base elegida
+- **Paleta de comandos** Ctrl+P
+- **Toasts** de feedback para operaciones clave
+- **Ruta de wiki configurable** desde Ajustes (persiste en JSON local de Tauri)
 
 ---
 
 ## Requisitos
 
-- [Node.js](https://nodejs.org/) (v18 o superior)
-- npm (incluido con Node.js)
+- [Node.js](https://nodejs.org/) v18 o superior
 - [Rust y Cargo](https://rustup.rs/)
-- [Visual Studio Build Tools 2022](https://visualstudio.microsoft.com/visual-cpp-build-tools/) con el componente **Desarrollo para el escritorio con C++**
-- [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) (incluido en Windows 11; en Windows 10 puede requerirse instalación manual)
+- [Visual Studio Build Tools 2022](https://visualstudio.microsoft.com/visual-cpp-build-tools/) — componente **Desarrollo para el escritorio con C++**
+- WebView2 Runtime (incluido en Windows 11; en Windows 10 puede requerirse instalación manual)
 
 ---
 
@@ -49,22 +51,22 @@ npm install
 ## Ejecutar en desarrollo
 
 ```bash
-npm run tauri dev
+npm run tauri:dev
 ```
 
-Esto abre la ventana de escritorio Tauri con recarga en caliente. La primera compilación de Rust puede tardar varios minutos.
+La primera compilación de Rust puede tardar varios minutos. Las siguientes son incrementales.
 
 ---
 
 ## Carpeta wiki local
 
-La wiki real vive por defecto en:
+La ruta por defecto es:
 
 ```
 D:\NebulosaWiki
 ```
 
-Esa carpeta no forma parte de este repositorio. Los archivos `.md` dentro de ella son la fuente de verdad de las notas; la app los lee directamente sin base de datos externa.
+Se puede cambiar desde el panel de Ajustes dentro de la app. La ruta elegida se persiste en un archivo de configuración JSON local gestionado por Tauri. Los archivos `.md` son la fuente de verdad — no hay base de datos externa.
 
 ---
 
@@ -72,34 +74,14 @@ Esa carpeta no forma parte de este repositorio. Los archivos `.md` dentro de ell
 
 | Capa | Tecnología |
 |---|---|
-| Shell de escritorio | Tauri (Rust + WebView) |
-| UI | React + TypeScript |
+| Shell de escritorio | Tauri 2 (Rust + WebView2) |
+| UI | React 19 + TypeScript |
 | Grafo visual | Cytoscape.js |
-| Búsqueda local | MiniSearch (fase 2) |
-| Parser Markdown | Por definir (remark / markdown-it) |
-| Configuración | JSON local |
+| Búsqueda full-text | Rust (búsqueda en contenido de archivos) |
+| Renderizado Markdown | react-markdown + remark-gfm |
+| Configuración | JSON local vía Tauri |
 
 Ver decisión completa en [`ADR-0001.md`](ADR-0001.md).
-
----
-
-## Próximos pasos
-
-- [ ] Crear layout base (sidebar + panel de nota)
-- [ ] Leer carpeta `D:\NebulosaWiki` desde Tauri (comando Rust)
-- [ ] Listar notas Markdown en el sidebar
-- [ ] Detectar wikilinks en el contenido de las notas
-- [ ] Detectar backlinks (qué notas apuntan a cada nota)
-- [ ] Construir grafo visual con Cytoscape.js
-
----
-
-## Roadmap completado
-
-- [x] Crear base documental (`ADR-0001.md`, `CLAUDE.md`, `README.md`, `.gitignore`)
-- [x] Crear estructura `.claude/` (skills, commands, scripts)
-- [x] Crear proyecto Tauri + React + TypeScript base
-- [x] Pantalla inicial propia de Nebulosa Wiki
 
 ---
 
@@ -108,7 +90,6 @@ Ver decisión completa en [`ADR-0001.md`](ADR-0001.md).
 - Cambios pequeños, un paso a la vez
 - Máximo 3–5 archivos modificados por iteración
 - Reportar siempre los archivos tocados
-- Explicar cómo probar cada cambio
 - No tocar datos reales de la wiki sin permiso explícito
 
 Ver reglas completas en [`CLAUDE.md`](CLAUDE.md).

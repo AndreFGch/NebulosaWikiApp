@@ -14,13 +14,13 @@ Aplicación local-first, portable y visual para manejar una wiki Markdown local 
 
 ## Visión general
 
-La app trabaja con una carpeta de wiki por defecto:
+La app trabaja con una carpeta de wiki configurable desde el panel de Ajustes. La ruta por defecto/fallback es:
 
 ```
 D:\NebulosaWiki
 ```
 
-Los archivos `.md` son la fuente de verdad. No hay base de datos externa. Claude Code puede leer y escribir en esa carpeta siguiendo las reglas de seguridad definidas aquí.
+La ruta elegida se persiste en un archivo JSON local gestionado por Tauri y puede cambiarse en cualquier momento desde la UI. Los archivos `.md` son la fuente de verdad. No hay base de datos externa. Claude Code puede leer y escribir en esa carpeta siguiendo las reglas de seguridad definidas aquí.
 
 ---
 
@@ -41,12 +41,12 @@ Los archivos `.md` son la fuente de verdad. No hay base de datos externa. Claude
 
 | Capa | Tecnología |
 |---|---|
-| Shell de escritorio | Tauri (Rust + WebView) |
-| UI | React + TypeScript |
+| Shell de escritorio | Tauri 2 (Rust + WebView2) |
+| UI | React 19 + TypeScript |
 | Grafo visual | Cytoscape.js |
-| Búsqueda local | MiniSearch (fase 2) |
-| Parser Markdown | Por definir (remark / markdown-it) |
-| Configuración | JSON local |
+| Búsqueda full-text | Rust (implementada en backend, sin MiniSearch) |
+| Renderizado Markdown | react-markdown + remark-gfm |
+| Configuración | JSON local vía Tauri |
 
 Ver decisión completa en [`ADR-0001.md`](ADR-0001.md).
 
@@ -56,7 +56,7 @@ Ver decisión completa en [`ADR-0001.md`](ADR-0001.md).
 
 - No borrar notas sin confirmación explícita del usuario.
 - No mover carpetas de la wiki sin confirmación explícita.
-- No tocar rutas fuera de `D:\NebulosaWiki` sin permiso.
+- No tocar rutas fuera de la wiki root configurada sin permiso.
 - No modificar datos reales de la wiki sin explicar primero qué se cambiará y por qué.
 - Antes de cambios masivos, crear backup o proponer cómo hacerlo.
 - Validar rutas antes de escribir cualquier archivo.
@@ -148,7 +148,7 @@ Reportar siempre:
 
 - Borrar notas o archivos de la wiki
 - Mover o renombrar carpetas de la wiki
-- Tocar rutas fuera de `D:\NebulosaWiki`
+- Tocar rutas fuera de la wiki root configurada
 - Instalar dependencias
 - Cambiar el stack definido en ADR-0001.md
 - Hacer cambios masivos en múltiples archivos sin plan aprobado

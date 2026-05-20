@@ -676,8 +676,22 @@ button.nw-wikilink:hover {
 }
 
 .nw-wikilink--missing {
+  color: #d97706;
+  background: rgba(217, 119, 6, 0.09);
+  border-color: rgba(217, 119, 6, 0.28);
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+button.nw-wikilink--missing:hover:not(:disabled) {
+  background: rgba(217, 119, 6, 0.2);
+  border-color: rgba(217, 119, 6, 0.55);
+  color: #fbbf24;
+}
+button.nw-wikilink--missing:disabled {
   opacity: 0.5;
-  cursor: default;
+  cursor: not-allowed;
 }
 
 /* ── Graph header chips ─────────────────────────────────────── */
@@ -790,6 +804,55 @@ button.nw-wikilink:hover {
   color: var(--accent);
   border-color: rgba(124, 106, 247, 0.4);
   background: rgba(124, 106, 247, 0.12);
+}
+
+/* ── Graph type filter ──────────────────────────────────────── */
+.nw-graph-type-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.nw-graph-type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6rem;
+  padding: 2px 7px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+.nw-graph-type-chip:hover {
+  background: rgba(124, 106, 247, 0.1);
+  border-color: rgba(124, 106, 247, 0.35);
+  color: var(--text);
+}
+
+.nw-graph-type-chip--active {
+  background: rgba(124, 106, 247, 0.15);
+  border-color: rgba(124, 106, 247, 0.55);
+  color: var(--accent);
+}
+.nw-graph-type-chip--active:hover {
+  background: rgba(124, 106, 247, 0.22);
+}
+
+.nw-graph-type-chip--disabled {
+  opacity: 0.42;
+}
+.nw-graph-type-chip--disabled:hover {
+  opacity: 0.75;
+}
+
+.nw-graph-type-count {
+  font-size: 0.56rem;
+  opacity: 0.65;
+  font-variant-numeric: tabular-nums;
 }
 
 .nw-ctrl-chip--disabled {
@@ -908,12 +971,18 @@ button.nw-wikilink:hover {
   z-index: 20;
   overflow-y: auto;
   background: var(--bg);
-  padding: 48px 56px;
+  padding: 40px 52px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  align-items: center;
+  gap: 24px;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
+}
+
+.nw-home > * {
+  width: 100%;
+  max-width: 900px;
 }
 
 .nw-home-hero {
@@ -1085,6 +1154,14 @@ button.nw-wikilink:hover {
   text-overflow: ellipsis;
 }
 
+.nw-home-note-more {
+  padding: 6px 16px 10px;
+  font-size: 0.74rem;
+  color: var(--text-dim);
+  font-style: italic;
+  list-style: none;
+}
+
 .nw-home-note-empty {
   padding: 16px;
   font-size: 0.82rem;
@@ -1114,6 +1191,97 @@ button.nw-wikilink:hover {
   color: var(--accent-dim);
   font-size: 1.1rem;
   line-height: 1;
+}
+
+.nw-home-coming-item--done::before {
+  content: none;
+}
+
+.nw-home-coming-item--done {
+  color: rgba(134, 239, 172, 0.7);
+  font-size: 0.78rem;
+}
+
+.nw-home-card-header--sub {
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Recent notes card ─────────────────────────────────────── */
+.nw-home-recent-card {
+  background: var(--surface);
+  border: 1px solid rgba(124, 106, 247, 0.13);
+  border-radius: 12px;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.nw-home-recent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--text-dim);
+  padding: 9px 16px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--badge-bg);
+}
+
+.nw-home-recent-clear {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.67rem;
+  cursor: pointer;
+  padding: 0 2px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.nw-home-recent-clear:hover { opacity: 1; }
+
+.nw-home-recent-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.nw-home-recent-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(37, 42, 54, 0.55);
+  transition: background 0.1s;
+}
+.nw-home-recent-item:last-child { border-bottom: none; }
+.nw-home-recent-item:hover { background: rgba(255, 255, 255, 0.022); }
+
+.nw-home-recent-folder {
+  font-size: 0.63rem;
+  color: var(--accent);
+  text-transform: lowercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nw-home-recent-title {
+  font-size: 0.84rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nw-home-recent-empty {
+  padding: 14px 16px;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  font-style: italic;
 }
 
 /* ── Edit mode ──────────────────────────────────────────────── */
@@ -1354,6 +1522,28 @@ button.nw-wikilink:hover {
   padding: 7px 12px;
 }
 
+.nw-backup-success {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--ok);
+  background: rgba(74, 222, 128, 0.06);
+  border: 1px solid rgba(74, 222, 128, 0.18);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.nw-backup-path {
+  font-family: "Cascadia Code", "Fira Code", monospace;
+  font-size: 0.72rem;
+  color: var(--text);
+  word-break: break-all;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+
 .nw-modal-footer {
   display: flex;
   justify-content: flex-end;
@@ -1472,6 +1662,73 @@ button.nw-wikilink:hover {
   cursor: not-allowed;
 }
 
+/* ── Tag filter ─────────────────────────────────────────────── */
+.nw-tag-filter {
+  padding: 8px 12px 6px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.nw-tag-filter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.63rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.nw-tag-filter-clear {
+  background: none;
+  border: 1px solid rgba(124, 106, 247, 0.35);
+  color: var(--accent);
+  font-size: 0.63rem;
+  border-radius: 20px;
+  padding: 1px 7px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.nw-tag-filter-clear:hover { background: rgba(124, 106, 247, 0.1); }
+
+.nw-tag-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.nw-tag-chip {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  border-radius: 20px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+.nw-tag-chip:hover {
+  background: rgba(124, 106, 247, 0.1);
+  border-color: rgba(124, 106, 247, 0.4);
+  color: var(--text);
+}
+.nw-tag-chip--active {
+  background: rgba(124, 106, 247, 0.18);
+  border-color: rgba(124, 106, 247, 0.65);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.nw-tag-filter-empty {
+  font-size: 0.74rem;
+  color: var(--text-dim);
+  font-style: italic;
+  margin: 0;
+}
+
 /* ── Content search results ─────────────────────────────────── */
 .nw-content-search {
   border-top: 1px solid rgba(124, 106, 247, 0.1);
@@ -1578,22 +1835,36 @@ button.nw-wikilink:hover {
   background: var(--badge-bg);
   flex-shrink: 0;
   padding: 4px 0;
+  max-height: 40vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.nw-relations-title {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--accent);
+  padding: 6px 14px 2px;
+  opacity: 0.7;
 }
 
 .nw-relations-header {
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.5px;
   color: var(--text-dim);
-  padding: 6px 14px 3px;
+  padding: 5px 14px 2px;
 }
 
 .nw-relation-item {
   display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 4px 14px;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 14px;
   cursor: pointer;
   transition: background 0.1s;
   min-width: 0;
@@ -1604,35 +1875,85 @@ button.nw-wikilink:hover {
 }
 
 .nw-relation-folder {
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   color: var(--accent);
   flex-shrink: 0;
-  max-width: 70px;
+  max-width: 60px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .nw-relation-title {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  flex: 1;
 }
 
 .nw-relation-item--missing {
   cursor: default;
-  opacity: 0.55;
 }
 
 .nw-relation-item--missing:hover {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.015);
 }
 
 .nw-relation-item--missing .nw-relation-title {
+  color: rgba(251, 191, 36, 0.75);
+}
+
+.nw-relation-badge {
+  font-size: 0.55rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: rgba(251, 191, 36, 0.6);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: 3px;
+  padding: 1px 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.nw-relation-create-btn {
+  background: none;
+  border: 1px solid rgba(124, 106, 247, 0.3);
+  color: var(--accent);
+  font-size: 0.65rem;
+  font-family: inherit;
+  padding: 1px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.1s, border-color 0.1s;
+  line-height: 1.4;
+}
+
+.nw-relation-create-btn:hover:not(:disabled) {
+  background: rgba(124, 106, 247, 0.12);
+  border-color: var(--accent);
+}
+
+.nw-relation-create-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.nw-relation-error {
+  font-size: 0.72rem;
   color: var(--error);
+  padding: 4px 14px;
+}
+
+.nw-relations-more {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  padding: 2px 14px 4px;
+  font-style: italic;
 }
 
 /* ── Danger view button ─────────────────────────────────────── */
@@ -1737,8 +2058,8 @@ button.nw-wikilink:hover {
   }
 
   .nw-graph-panel {
-    flex: none;
-    height: 420px;
+    flex: 1;
+    min-height: 0;
     border-right: none;
     border-bottom: 1px solid var(--border);
     max-width: 100%;
@@ -1801,7 +2122,7 @@ button.nw-wikilink:hover {
 
   .nw-home-actions {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
     gap: 6px;
   }
 
@@ -1822,5 +2143,203 @@ button.nw-wikilink:hover {
 
   .nw-home-note-item {
     padding: 7px 12px;
+  }
+
+  .nw-home-recent-card {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .nw-home-recent-item {
+    padding: 7px 12px;
+  }
+}
+
+/* ── Command palette ─────────────────────────────────────── */
+.nw-command-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(5, 6, 10, 0.72);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 14vh;
+}
+
+.nw-command-palette {
+  background: #0f1117;
+  border: 1px solid rgba(124, 106, 247, 0.28);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 560px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+.nw-command-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(124, 106, 247, 0.15);
+  color: var(--text);
+  font-size: 0.95rem;
+  font-family: inherit;
+  padding: 14px 18px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.nw-command-input::placeholder {
+  color: var(--text-dim);
+}
+
+.nw-command-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  max-height: 340px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.nw-command-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 18px;
+  cursor: pointer;
+  transition: background 0.08s;
+}
+
+.nw-command-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.nw-command-item--active {
+  background: rgba(124, 106, 247, 0.12);
+}
+
+.nw-command-item--active:hover {
+  background: rgba(124, 106, 247, 0.18);
+}
+
+.nw-command-label {
+  font-size: 0.88rem;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.nw-command-hint {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.nw-home-path {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-family: monospace;
+  margin: 2px 0 0;
+  line-height: 1.4;
+}
+
+.nw-settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nw-settings-help {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+  margin: -4px 0 0;
+}
+
+.nw-settings-error {
+  font-size: 0.78rem;
+  color: var(--error);
+  background: rgba(248, 113, 113, 0.06);
+  border: 1px solid rgba(248, 113, 113, 0.18);
+  border-radius: 6px;
+  padding: 7px 12px;
+  margin: 0;
+}
+
+.nw-command-empty {
+  padding: 14px 18px;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/* ── Toast ────────────────────────────────── */
+.nw-toast-stack {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.nw-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  font-size: 0.82rem;
+  color: var(--text);
+  min-width: 200px;
+  max-width: 320px;
+  pointer-events: all;
+  animation: nw-toast-in 0.18s ease;
+}
+
+@keyframes nw-toast-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.nw-toast--success { border-left: 3px solid var(--ok); }
+.nw-toast--error   { border-left: 3px solid var(--error); }
+.nw-toast--info    { border-left: 3px solid var(--accent); }
+
+.nw-toast-message {
+  flex: 1;
+  line-height: 1.3;
+}
+
+.nw-toast-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 0.72rem;
+  padding: 0 2px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.nw-toast-close:hover { color: var(--text); }
+
+@media (max-width: 600px) {
+  .nw-toast-stack {
+    right: 10px;
+    left: 10px;
+    bottom: 12px;
+  }
+  .nw-toast {
+    max-width: 100%;
   }
 }

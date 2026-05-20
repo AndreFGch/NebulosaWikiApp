@@ -1,5 +1,34 @@
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use std::path::Path;
+
+#[derive(Serialize, Deserialize)]
+struct WikiConfig {
+    wiki_root: String,
+}
+
+fn config_file_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    use tauri::Manager;
+    let dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("Error al obtener directorio de configuración: {}", e))?;
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| format!("Error al crear directorio de configuración: {}", e))?;
+    Ok(dir.join("settings.json"))
+}
+
+fn get_configured_wiki_root(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    const DEFAULT: &str = r"D:\NebulosaWiki";
+    let config_path = config_file_path(app)?;
+    if !config_path.exists() {
+        return Ok(std::path::PathBuf::from(DEFAULT));
+    }
+    let text = std::fs::read_to_string(&config_path)
+        .map_err(|e| format!("Error al leer configuración: {}", e))?;
+    let cfg: WikiConfig = serde_json::from_str(&text)
+        .unwrap_or(WikiConfig { wiki_root: DEFAULT.to_string() });
+    Ok(std::path::PathBuf::from(cfg.wiki_root))
+}
 
 #[derive(Serialize)]
 pub struct MarkdownFile {
@@ -39,8 +68,9 @@ fn walk_dir(dir: &Path, root: &Path, results: &mut Vec<MarkdownFile>) -> std::io
 }
 
 #[tauri::command]
-fn list_markdown_files() -> Result<Vec<MarkdownFile>, String> {
-    let wiki_root = Path::new(r"D:\NebulosaWiki");
+fn list_markdown_files(app_handle: tauri::AppHandle) -> Result<Vec<MarkdownFile>, String> {
+    let wiki_root_buf = get_configured_wiki_root(&app_handle)?;
+    let wiki_root = wiki_root_buf.as_path();
     if !wiki_root.exists() {
         return Err(format!(
             "La carpeta de la wiki no existe: {}",
@@ -55,12 +85,13 @@ fn list_markdown_files() -> Result<Vec<MarkdownFile>, String> {
 }
 
 #[tauri::command]
-fn read_markdown_file(relative_path: String) -> Result<String, String> {
+fn read_markdown_file(app_handle: tauri::AppHandle, relative_path: String) -> Result<String, String> {
     if relative_path.contains("..") {
         return Err("Ruta no permitida: intento de escape detectado.".to_string());
     }
 
-    let wiki_root = Path::new(r"D:\NebulosaWiki");
+    let wiki_root_buf = get_configured_wiki_root(&app_handle)?;
+    let wiki_root = wiki_root_buf.as_path();
     let normalized = relative_path.replace('/', "\\");
     let candidate = wiki_root.join(&normalized);
 
@@ -85,12 +116,13 @@ fn read_markdown_file(relative_path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn update_markdown_file(relative_path: String, content: String) -> Result<(), String> {
+fn update_markdown_file(app_handle: tauri::AppHandle, relative_path: String, content: String) -> Result<(), String> {
     if relative_path.contains("..") {
         return Err("Ruta no permitida: intento de escape detectado.".to_string());
     }
 
-    let wiki_root = Path::new(r"D:\NebulosaWiki");
+    let wiki_root_buf = get_configured_wiki_root(&app_handle)?;
+    let wiki_root = wiki_root_buf.as_path();
     let normalized = relative_path.replace('/', "\\");
     let candidate = wiki_root.join(&normalized);
 
@@ -115,7 +147,7 @@ fn update_markdown_file(relative_path: String, content: String) -> Result<(), St
 }
 
 #[tauri::command]
-fn create_markdown_file(relative_path: String, content: String) -> Result<(), String> {
+fn create_markdown_file(app_handle: tauri::AppHandle, relative_path: String, content: String) -> Result<(), String> {
     if relative_path.contains("..") {
         return Err("Ruta no permitida: intento de escape detectado.".to_string());
     }
@@ -126,7 +158,8 @@ fn create_markdown_file(relative_path: String, content: String) -> Result<(), St
         return Err("Ruta no permitida: se rechaza ruta absoluta.".to_string());
     }
 
-    let wiki_root = Path::new(r"D:\NebulosaWiki");
+    let wiki_root_buf = get_configured_wiki_root(&app_handle)?;
+    let wiki_root = wiki_root_buf.as_path();
     let candidate = wiki_root.join(&normalized);
 
     if candidate.extension().map_or(true, |e| e != "md") {
@@ -189,12 +222,13 @@ fn create_markdown_file(relative_path: String, content: String) -> Result<(), St
 }
 
 #[tauri::command]
-fn delete_markdown_file(relative_path: String) -> Result<(), String> {
+fn delete_markdown_file(app_handle: tauri::AppHandle, relative_path: String) -> Result<(), String> {
     if relative_path.contains("..") {
         return Err("Ruta no permitida: intento de escape detectado.".to_string());
     }
 
-    let wiki_root = Path::new(r"D:\NebulosaWiki");
+    let wiki_root_buf = get_configured_wiki_root(&app_handle)?;
+    let wiki_root = wiki_root_buf.as_path();
     let normalized = relative_path.replace('/', "\\");
 
     if Path::new(&normalized).is_absolute() {
@@ -228,7 +262,7 @@ fn delete_markdown_file(relative_path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn export_markdown_file(relative_path: String, target_path: String) -> Result<(), String> {
+fn export_markdown_file(app_handle: tauri::AppHandle, relative_path: String, target_path: String) -> Result<(), String> {
     if relative_path.contains("..") {
         return Err("Ruta no permitida: intento de escape detectado.".to_string());
     }
@@ -238,7 +272,8 @@ fn export_markdown_file(relative_path: String, target_path: String) -> Result<()
         return Err("Ruta no permitida: se rechaza ruta absoluta.".to_string());
     }
 
-    let wiki_root = Path::new(r"D:\NebulosaWiki");
+    let wiki_root_buf = get_configured_wiki_root(&app_handle)?;
+    let wiki_root = wiki_root_buf.as_path();
     let source_candidate = wiki_root.join(&normalized);
 
     if source_candidate.extension().map_or(true, |e| e != "md") {
@@ -284,7 +319,7 @@ fn export_markdown_file(relative_path: String, target_path: String) -> Result<()
 }
 
 #[tauri::command]
-fn import_markdown_file(source_path: String, target_folder: String) -> Result<String, String> {
+fn import_markdown_file(app_handle: tauri::AppHandle, source_path: String, target_folder: String) -> Result<String, String> {
     const ALLOWED_FOLDERS: &[&str] = &[
         "notes", "projects", "sources", "sessions", "skills", "indexes",
     ];
@@ -327,7 +362,8 @@ fn import_markdown_file(source_path: String, target_folder: String) -> Result<St
         return Err(format!("Nombre reservado de Windows no permitido: {}.", stem));
     }
 
-    let wiki_root = Path::new(r"D:\NebulosaWiki");
+    let wiki_root_buf = get_configured_wiki_root(&app_handle)?;
+    let wiki_root = wiki_root_buf.as_path();
     let canonical_root = wiki_root
         .canonicalize()
         .map_err(|e| format!("Error al resolver la raíz de la wiki: {}", e))?;
@@ -398,13 +434,14 @@ fn walk_and_export(
 }
 
 #[tauri::command]
-fn export_wiki(target_dir: String) -> Result<u32, String> {
+fn export_wiki(app_handle: tauri::AppHandle, target_dir: String) -> Result<u32, String> {
     let td = target_dir.trim();
     if td.is_empty() {
         return Err("La carpeta destino es requerida.".to_string());
     }
 
-    let wiki_root = Path::new(r"D:\NebulosaWiki");
+    let wiki_root_buf = get_configured_wiki_root(&app_handle)?;
+    let wiki_root = wiki_root_buf.as_path();
     if !wiki_root.exists() {
         return Err(format!(
             "La carpeta de la wiki no existe: {}",
@@ -434,6 +471,87 @@ fn export_wiki(target_dir: String) -> Result<u32, String> {
     let mut count: u32 = 0;
     walk_and_export(&canonical_root, &canonical_root, &canonical_target, &mut count)?;
     Ok(count)
+}
+
+fn backup_timestamp() -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let secs_today = secs % 86400;
+    let hh = secs_today / 3600;
+    let mm = (secs_today % 3600) / 60;
+    let ss = secs_today % 60;
+    let mut days = (secs / 86400) as u32;
+    let mut year = 1970u32;
+    loop {
+        let dy = if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) { 366 } else { 365 };
+        if days < dy { break; }
+        days -= dy;
+        year += 1;
+    }
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let month_days: [u32; 12] = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let mut month = 1u32;
+    for &d in &month_days {
+        if days < d { break; }
+        days -= d;
+        month += 1;
+    }
+    let day = days + 1;
+    format!("{:04}-{:02}-{:02}-{:02}{:02}{:02}", year, month, day, hh, mm, ss)
+}
+
+#[tauri::command]
+fn backup_wiki(app_handle: tauri::AppHandle, target_base_dir: String) -> Result<String, String> {
+    let tbd = target_base_dir.trim();
+    if tbd.is_empty() {
+        return Err("La carpeta base es requerida.".to_string());
+    }
+
+    let wiki_root_buf = get_configured_wiki_root(&app_handle)?;
+    let wiki_root = wiki_root_buf.as_path();
+    if !wiki_root.exists() {
+        return Err(format!("La carpeta de la wiki no existe: {}", wiki_root.display()));
+    }
+
+    let canonical_root = wiki_root
+        .canonicalize()
+        .map_err(|e| format!("Error al resolver la raíz de la wiki: {}", e))?;
+
+    let base = Path::new(tbd);
+    if !base.exists() {
+        return Err(format!("La carpeta base no existe: {}", tbd));
+    }
+    if !base.is_dir() {
+        return Err("La carpeta base debe ser un directorio.".to_string());
+    }
+
+    let canonical_base = base
+        .canonicalize()
+        .map_err(|e| format!("Error al resolver carpeta base: {}", e))?;
+
+    if canonical_base == canonical_root {
+        return Err("No se puede hacer backup en la misma carpeta de la wiki.".to_string());
+    }
+    if canonical_base.starts_with(&canonical_root) {
+        return Err("No se puede hacer backup dentro de la wiki.".to_string());
+    }
+
+    let folder_name = format!("NebulosaWiki-backup-{}", backup_timestamp());
+    let backup_dir = canonical_base.join(&folder_name);
+
+    if backup_dir.exists() {
+        return Err(format!("La carpeta de backup ya existe: {}", backup_dir.display()));
+    }
+
+    std::fs::create_dir_all(&backup_dir)
+        .map_err(|e| format!("Error al crear carpeta de backup: {}", e))?;
+
+    let mut count: u32 = 0;
+    walk_and_export(&canonical_root, &canonical_root, &backup_dir, &mut count)?;
+
+    Ok(backup_dir.to_string_lossy().to_string())
 }
 
 #[derive(serde::Serialize)]
@@ -528,13 +646,14 @@ fn walk_search(
 }
 
 #[tauri::command]
-fn search_markdown_content(query: String) -> Result<Vec<SearchResult>, String> {
+fn search_markdown_content(app_handle: tauri::AppHandle, query: String) -> Result<Vec<SearchResult>, String> {
     let q = query.trim();
     if q.len() < 2 {
         return Err("La búsqueda debe tener al menos 2 caracteres.".to_string());
     }
     let query_lower = q.to_lowercase();
-    let wiki_root = Path::new(r"D:\NebulosaWiki");
+    let wiki_root_buf = get_configured_wiki_root(&app_handle)?;
+    let wiki_root = wiki_root_buf.as_path();
     if !wiki_root.exists() {
         return Err(format!("La carpeta de la wiki no existe: {}", wiki_root.display()));
     }
@@ -544,11 +663,57 @@ fn search_markdown_content(query: String) -> Result<Vec<SearchResult>, String> {
     Ok(results)
 }
 
+#[tauri::command]
+fn get_wiki_root(app_handle: tauri::AppHandle) -> Result<String, String> {
+    let root = get_configured_wiki_root(&app_handle)?;
+    Ok(root.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+fn set_wiki_root(app_handle: tauri::AppHandle, path: String) -> Result<String, String> {
+    let p = path.trim();
+    if p.is_empty() {
+        return Err("La ruta no puede estar vacía.".to_string());
+    }
+    let candidate = std::path::Path::new(p);
+    if !candidate.exists() {
+        return Err(format!("La carpeta no existe: {}", p));
+    }
+    if !candidate.is_dir() {
+        return Err("La ruta debe ser una carpeta.".to_string());
+    }
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|e| format!("Error al resolver la ruta: {}", e))?;
+
+    let config_path = config_file_path(&app_handle)?;
+    let cfg = WikiConfig { wiki_root: canonical.to_string_lossy().into_owned() };
+    let text = serde_json::to_string_pretty(&cfg)
+        .map_err(|e| format!("Error al serializar configuración: {}", e))?;
+    std::fs::write(&config_path, text.as_bytes())
+        .map_err(|e| format!("Error al guardar configuración: {}", e))?;
+
+    Ok(canonical.to_string_lossy().into_owned())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![list_markdown_files, read_markdown_file, update_markdown_file, create_markdown_file, delete_markdown_file, import_markdown_file, export_markdown_file, export_wiki, search_markdown_content])
+        .invoke_handler(tauri::generate_handler![
+            list_markdown_files,
+            read_markdown_file,
+            update_markdown_file,
+            create_markdown_file,
+            delete_markdown_file,
+            import_markdown_file,
+            export_markdown_file,
+            export_wiki,
+            backup_wiki,
+            search_markdown_content,
+            get_wiki_root,
+            set_wiki_root
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

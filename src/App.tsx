@@ -810,6 +810,19 @@ function App() {
     }
   }, [selectedNote, editContent, showToast]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        if (detailMode === "edit" && selectedNote && !editSaving) {
+          e.preventDefault();
+          handleSave();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [detailMode, selectedNote, editSaving, handleSave]);
+
   const openNewNoteModal = useCallback(() => {
     setNewNoteTemplate("simple");
     setNewNoteTitle("");

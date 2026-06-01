@@ -763,6 +763,11 @@ function App() {
   }, []);
 
   const handleNoteClick = useCallback((note: MarkdownFile) => {
+    if (detailMode === "edit" && editContent !== noteContent) {
+      if (!window.confirm("Tienes cambios sin guardar. ¿Deseas descartar los cambios y abrir otra nota?")) {
+        return;
+      }
+    }
     setSelectedNote(note);
     setRecentNotePaths(prev => {
       const updated = [note.relativePath, ...prev.filter(p => p !== note.relativePath)].slice(0, 6);
@@ -778,7 +783,7 @@ function App() {
     invoke<string>("read_markdown_file", { relativePath: note.relativePath })
       .then((content) => { setNoteContent(content); setContentLoading(false); })
       .catch((err) => { setContentError(String(err)); setContentLoading(false); });
-  }, []);
+  }, [detailMode, editContent, noteContent]);
 
   const clearRecentNotes = useCallback(() => {
     setRecentNotePaths([]);

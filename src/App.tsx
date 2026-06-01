@@ -1595,6 +1595,8 @@ function App() {
         .map(e => ({ label: e.label, targetId: e.target }))
     : [];
 
+  const hasUnsavedChanges = detailMode === "edit" && editContent !== noteContent;
+
   return (
     <div className={`nw-shell${!isSidebarOpen ? " nw-shell--sidebar-collapsed" : ""}${!isDetailOpen ? " nw-shell--detail-collapsed" : ""}`}>
       <nav className="nw-ribbon">
@@ -1967,6 +1969,7 @@ function App() {
             {isDetailOpen ? "»" : "«"}
           </button>
           {isDetailOpen && <span className="nw-detail-title">{selectedNote?.title ?? "—"}</span>}
+          {isDetailOpen && hasUnsavedChanges && <span className="nw-unsaved-badge">• Sin guardar</span>}
           {isDetailOpen && selectedNote && (
             <div className="nw-view-toggle">
               <button

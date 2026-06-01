@@ -389,6 +389,14 @@ body {
   min-width: 0;
 }
 
+.nw-unsaved-badge {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #f59e0b;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .nw-detail-collapsed-title {
   writing-mode: vertical-rl;
   text-orientation: mixed;

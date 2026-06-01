@@ -69,6 +69,10 @@ fn walk_dir(dir: &Path, root: &Path, results: &mut Vec<MarkdownFile>) -> std::io
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
+            let dir_name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            if dir_name.starts_with('.') {
+                continue;
+            }
             walk_dir(&path, root, results)?;
         } else if path.extension().map_or(false, |e| e == "md") {
             let relative = path.strip_prefix(root).unwrap_or(&path);

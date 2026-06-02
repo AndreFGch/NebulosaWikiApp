@@ -764,3 +764,104 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct TempDir(std::path::PathBuf);
+    impl TempDir {
+        fn new(suffix: &str) -> Self {
+            let p = std::env::temp_dir().join(format!("nebulosa_test_{}", suffix));
+            let _ = std::fs::remove_dir_all(&p);
+            std::fs::create_dir_all(&p).unwrap();
+            Self(p)
+        }
+        fn path(&self) -> &std::path::Path {
+            &self.0
+        }
+    }
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn walk_dir_ignores_hidden_folders() {
+        let td = TempDir::new("walk_hidden");
+        let root = td.path();
+        std::fs::create_dir_all(root.join("notes")).unwrap();
+        std::fs::write(root.join("notes").join("test.md"), "# Test").unwrap();
+        std::fs::create_dir_all(root.join(".nebulosa")).unwrap();
+        std::fs::write(root.join(".nebulosa").join("hidden.md"), "hidden").unwrap();
+
+        let mut results = Vec::new();
+        walk_dir(root, root, &mut results).unwrap();
+
+        let paths: Vec<&str> = results.iter().map(|f| f.relative_path.as_str()).collect();
+        assert!(paths.contains(&"notes/test.md"), "notes/test.md debe aparecer");
+        assert!(!paths.iter().any(|p| p.contains(".nebulosa")), ".nebulosa no debe aparecer");
+    }
+
+    #[test]
+    fn walk_and_export_ignores_hidden() {
+        let src = TempDir::new("export_src");
+        let dst = TempDir::new("export_dst");
+        std::fs::create_dir_all(src.path().join("notes")).unwrap();
+        std::fs::write(src.path().join("notes").join("visible.md"), "visible").unwrap();
+        std::fs::create_dir_all(src.path().join(".nebulosa")).unwrap();
+        std::fs::write(src.path().join(".nebulosa").join("hidden.md"), "hidden").unwrap();
+
+        let mut count = 0u32;
+        walk_and_export(src.path(), src.path(), dst.path(), &mut count).unwrap();
+
+        assert_eq!(count, 1, "solo un archivo visible debe exportarse");
+        assert!(dst.path().join("notes").join("visible.md").exists());
+        assert!(!dst.path().join(".nebulosa").exists());
+    }
+
+    #[test]
+    fn path_traversal_check_detects_dotdot() {
+        let allow = |p: &str| !p.contains("..");
+        assert!(!allow("../evil.md"), "../evil.md debe rechazarse");
+        assert!(!allow("notes/../../../etc/passwd"), "escape profundo debe rechazarse");
+        assert!(allow("notes/test.md"), "ruta válida debe permitirse");
+        assert!(allow("subfolder/deep/file.md"), "ruta anidada válida debe permitirse");
+    }
+
+    #[test]
+    fn absolute_path_check_detects_absolute() {
+        #[cfg(windows)]
+        {
+            assert!(std::path::Path::new("C:\\evil.md").is_absolute(), "ruta absoluta Windows debe detectarse");
+        }
+        assert!(!std::path::Path::new("notes\\test.md").is_absolute(), "ruta relativa debe pasar");
+        assert!(!std::path::Path::new("relative.md").is_absolute(), "archivo relativo debe pasar");
+    }
+
+    #[test]
+    fn search_title_extracts_h1() {
+        let c = "# Mi Nota\n\nContenido de la nota";
+        assert_eq!(extract_search_title(c, "fallback"), "Mi Nota");
+    }
+
+    #[test]
+    fn search_title_extracts_frontmatter() {
+        let c = "---\ntitulo: Título FM\n---\n\nContenido";
+        assert_eq!(extract_search_title(c, "fallback"), "Título FM");
+    }
+
+    #[test]
+    fn search_title_falls_back_to_stem() {
+        let c = "contenido sin encabezado ni frontmatter";
+        assert_eq!(extract_search_title(c, "mi-stem"), "mi-stem");
+    }
+
+    #[test]
+    fn snippet_centers_on_query() {
+        let c = "inicio del texto buscar_esto final del texto";
+        let s = extract_snippet(c, "buscar_esto", 40);
+        assert!(s.contains("buscar_esto"), "snippet debe contener el término buscado");
+    }
+}

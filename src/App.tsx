@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import cytoscape from "cytoscape";
@@ -1126,6 +1127,11 @@ function App() {
       setWikiRootSaving(false);
     }
   }, [wikiRootDraft, showToast]);
+
+  const handleBrowseWikiRoot = useCallback(async () => {
+    const result = await openDialog({ directory: true, multiple: false });
+    if (result) setWikiRootDraft(result as string);
+  }, []);
 
   const openExportModal = useCallback(() => {
     setExportTargetPath("");
@@ -2614,6 +2620,9 @@ function App() {
                     }}
                   />
                 </label>
+                <button className="nw-modal-btn nw-modal-btn--cancel" style={{ marginTop: "6px" }} onClick={handleBrowseWikiRoot} type="button">
+                  Examinar…
+                </button>
                 <p className="nw-settings-help">Debe ser una carpeta existente. No se mueven archivos automáticamente.</p>
                 {wikiRootError && <p className="nw-settings-error">{wikiRootError}</p>}
               </div>

@@ -732,6 +732,7 @@ fn set_wiki_root(app_handle: tauri::AppHandle, path: String) -> Result<String, S
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let data_dir = portable_data_dir()
                 .expect("No se pudo determinar el directorio portable de datos");

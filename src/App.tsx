@@ -810,6 +810,34 @@ function App() {
     }
   }, [selectedNote, editContent, showToast]);
 
+  const handleReloadWiki = useCallback(async () => {
+    if (detailMode === "edit" && editContent !== noteContent) {
+      if (!window.confirm("Tienes cambios sin guardar. ¿Recargar de todas formas y descartar los cambios?")) return;
+    }
+    try {
+      const files = await invoke<MarkdownFile[]>("list_markdown_files");
+      setNotes(files);
+      setGraphReady(false);
+      if (selectedNote) {
+        const updated = files.find(f => f.relativePath === selectedNote.relativePath);
+        if (!updated) {
+          setSelectedNote(null);
+          setIsDetailOpen(false);
+          setNoteContent("");
+          setDetailMode("preview");
+        } else {
+          setSelectedNote(updated);
+          const content = await invoke<string>("read_markdown_file", { relativePath: updated.relativePath });
+          setNoteContent(content);
+          setEditContent(content);
+        }
+      }
+      showToast("success", "Wiki recargada");
+    } catch (err) {
+      showToast("error", `No se pudo recargar: ${String(err)}`);
+    }
+  }, [detailMode, editContent, noteContent, selectedNote, showToast]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
@@ -1646,6 +1674,7 @@ function App() {
         >
           ⇡
         </button>
+        <button className="nw-ribbon-btn" onClick={handleReloadWiki} title="Recargar wiki">↻</button>
         <button className="nw-ribbon-btn" title="Ajustes" onClick={() => { setWikiRootDraft(wikiRoot); setWikiRootError(null); setShowSettingsModal(true); }}>⚙</button>
       </nav>
       <aside className={`nw-sidebar${!isSidebarOpen ? " nw-sidebar--collapsed" : ""}`}>

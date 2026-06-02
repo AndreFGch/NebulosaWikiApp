@@ -657,16 +657,90 @@ fn extract_snippet(content: &str, query_lower: &str, max_chars: usize) -> String
     }
 }
 
+struct ScoredResult {
+    score: i32,
+    result: SearchResult,
+}
+
+// Tags simples: lineas frontmatter "tags:"/"tag:" + hashtags #algo del cuerpo.
+// No es parser YAML; solo junta texto para scoring.
+fn extract_tags_text(content: &str) -> String {
+    let mut out = String::new();
+    for line in content.lines() {
+        let t = line.trim_start();
+        let lower = t.to_lowercase();
+        if lower.starts_with("tags:") || lower.starts_with("tag:") {
+            if let Some(colon) = t.find(':') {
+                out.push_str(&t[colon + 1..]);
+                out.push(' ');
+            }
+        }
+        for tok in t.split_whitespace() {
+            if let Some(rest) = tok.strip_prefix('#') {
+                if rest.chars().next().map_or(false, |c| c.is_alphanumeric()) {
+                    out.push_str(rest);
+                    out.push(' ');
+                }
+            }
+        }
+    }
+    out
+}
+
+// True si query_norm cae dentro de algun [[...]] del contenido normalizado.
+fn wikilink_contains(content_norm: &str, query_norm: &str) -> bool {
+    let mut rest = content_norm;
+    while let Some(open) = rest.find("[[") {
+        let after = &rest[open + 2..];
+        match after.find("]]") {
+            Some(close) => {
+                if after[..close].contains(query_norm) { return true; }
+                rest = &after[close + 2..];
+            }
+            None => break,
+        }
+    }
+    false
+}
+
+// Score por campo. Devuelve el mas alto que coincida.
+// titulo 50 > tags 40 > ruta 30 > wikilink 20 > contenido 10.
+fn search_score(
+    query_norm: &str,
+    title: &str,
+    tags_text: &str,
+    relative_path: &str,
+    content: &str,
+) -> i32 {
+    if normalize_search_text(title).contains(query_norm) { return 50; }
+    if normalize_search_text(tags_text).contains(query_norm) { return 40; }
+    if normalize_search_text(relative_path).contains(query_norm) { return 30; }
+    let content_norm = normalize_search_text(content);
+    if wikilink_contains(&content_norm, query_norm) { return 20; }
+    if content_norm.contains(query_norm) { return 10; }
+    0
+}
+
+// Ordena por score desc, luego title asc (case-insensitive), luego ruta asc.
+// Trunca a 30 despues de ordenar (no durante el recorrido).
+fn rank_results(mut scored: Vec<ScoredResult>) -> Vec<SearchResult> {
+    scored.sort_by(|a, b| {
+        b.score
+            .cmp(&a.score)
+            .then_with(|| a.result.title.to_lowercase().cmp(&b.result.title.to_lowercase()))
+            .then_with(|| a.result.relative_path.cmp(&b.result.relative_path))
+    });
+    scored.into_iter().take(30).map(|s| s.result).collect()
+}
+
 fn walk_search(
     dir: &Path,
     root: &Path,
     query_lower: &str,
     query_norm: &str,
-    results: &mut Vec<SearchResult>,
+    results: &mut Vec<ScoredResult>,
 ) -> std::io::Result<()> {
-    if results.len() >= 30 { return Ok(()); }
     for entry in std::fs::read_dir(dir)? {
-        if results.len() >= 30 { break; }
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
@@ -689,7 +763,12 @@ fn walk_search(
             let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
             let title = extract_search_title(&content, &stem);
             let snippet = extract_snippet(&content, query_lower, 160);
-            results.push(SearchResult { relative_path, title, folder, snippet });
+            let tags_text = extract_tags_text(&content);
+            let score = search_score(query_norm, &title, &tags_text, &relative_path, &content);
+            results.push(ScoredResult {
+                score,
+                result: SearchResult { relative_path, title, folder, snippet },
+            });
         }
     }
     Ok(())
@@ -708,10 +787,10 @@ fn search_markdown_content(app_handle: tauri::AppHandle, query: String) -> Resul
     if !wiki_root.exists() {
         return Err(format!("La carpeta de la wiki no existe: {}", wiki_root.display()));
     }
-    let mut results = Vec::new();
-    walk_search(wiki_root, wiki_root, &query_lower, &query_norm, &mut results)
+    let mut scored: Vec<ScoredResult> = Vec::new();
+    walk_search(wiki_root, wiki_root, &query_lower, &query_norm, &mut scored)
         .map_err(|e| format!("Error al buscar: {}", e))?;
-    Ok(results)
+    Ok(rank_results(scored))
 }
 
 #[tauri::command]
@@ -829,6 +908,53 @@ mod tests {
         assert!(normalized.contains("comunicacion"));
         assert!(normalized.contains("accion"));
         assert!(normalized.contains("andre"));
+    }
+
+    fn sr(score: i32, title: &str, path: &str) -> ScoredResult {
+        ScoredResult {
+            score,
+            result: SearchResult {
+                relative_path: path.to_string(),
+                title: title.to_string(),
+                folder: String::new(),
+                snippet: String::new(),
+            },
+        }
+    }
+
+    #[test]
+    fn search_score_prioritizes_title_over_content() {
+        let s = search_score("nota", "Nota 50", "", "notes/nota-50.md", "nota en el cuerpo");
+        assert_eq!(s, 50);
+    }
+
+    #[test]
+    fn search_score_prioritizes_tags_over_path() {
+        let s = search_score("grafo", "Otro titulo", "grafo cytoscape", "notes/grafo.md", "cuerpo");
+        assert_eq!(s, 40);
+    }
+
+    #[test]
+    fn search_results_are_sorted_by_score_then_title() {
+        let scored = vec![
+            sr(10, "Zeta", "z.md"),
+            sr(50, "Beta", "b.md"),
+            sr(50, "Alfa", "a.md"),
+        ];
+        let ranked = rank_results(scored);
+        let titles: Vec<&str> = ranked.iter().map(|r| r.title.as_str()).collect();
+        assert_eq!(titles, vec!["Alfa", "Beta", "Zeta"]);
+    }
+
+    #[test]
+    fn search_results_truncate_after_sorting() {
+        let mut scored = Vec::new();
+        for i in 0..40 {
+            scored.push(sr(i, &format!("Nota {:02}", i), &format!("n{:02}.md", i)));
+        }
+        let ranked = rank_results(scored);
+        assert_eq!(ranked.len(), 30);
+        assert_eq!(ranked[0].title, "Nota 39");
     }
 
     #[test]

@@ -6,6 +6,22 @@ Está pensada para organizar conocimiento personal, notas conectadas, documentac
 
 ---
 
+## Capturas
+
+### Dashboard
+
+![Dashboard de Nebulosa Wiki](docs/screenshots/home.png)
+
+### Grafo visual
+
+![Grafo visual de notas](docs/screenshots/graph.png)
+
+### Editor Markdown
+
+![Editor Markdown de Nebulosa Wiki](docs/screenshots/editor.png)
+
+---
+
 ## Descargar
 
 La versión portable está disponible en la sección de releases:

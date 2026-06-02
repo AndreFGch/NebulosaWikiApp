@@ -96,6 +96,37 @@ fn walk_dir(dir: &Path, root: &Path, results: &mut Vec<MarkdownFile>) -> std::io
     Ok(())
 }
 
+fn validate_within_wiki_root(
+    root: &Path,
+    candidate: &Path,
+) -> Result<std::path::PathBuf, String> {
+    let canonical_root = root
+        .canonicalize()
+        .map_err(|e| format!("Error al resolver la raíz de la wiki: {}", e))?;
+
+    if candidate.exists() {
+        let canonical = candidate
+            .canonicalize()
+            .map_err(|e| format!("Error al resolver la ruta candidata: {}", e))?;
+        if !canonical.starts_with(&canonical_root) {
+            return Err("Ruta no permitida: fuera de la wiki.".to_string());
+        }
+        Ok(canonical)
+    } else {
+        let parent = candidate
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .ok_or_else(|| "Ruta no permitida: sin directorio padre válido.".to_string())?;
+        let canonical_parent = parent
+            .canonicalize()
+            .map_err(|e| format!("Error al verificar carpeta padre: {}", e))?;
+        if !canonical_parent.starts_with(&canonical_root) {
+            return Err("Ruta no permitida: fuera de la wiki.".to_string());
+        }
+        Ok(candidate.to_path_buf())
+    }
+}
+
 #[tauri::command]
 fn list_markdown_files(app_handle: tauri::AppHandle) -> Result<Vec<MarkdownFile>, String> {
     let wiki_root_buf = get_configured_wiki_root(&app_handle)?;
@@ -128,17 +159,10 @@ fn read_markdown_file(app_handle: tauri::AppHandle, relative_path: String) -> Re
         return Err("Solo se pueden leer archivos .md.".to_string());
     }
 
-    let canonical = candidate
-        .canonicalize()
-        .map_err(|_| format!("Archivo no encontrado: {}", relative_path))?;
-
-    let canonical_root = wiki_root
-        .canonicalize()
-        .map_err(|e| format!("Error al resolver la raíz de la wiki: {}", e))?;
-
-    if !canonical.starts_with(&canonical_root) {
-        return Err("Ruta no permitida: fuera de la wiki.".to_string());
+    if !candidate.exists() {
+        return Err(format!("Archivo no encontrado: {}", relative_path));
     }
+    let canonical = validate_within_wiki_root(wiki_root, &candidate)?;
 
     std::fs::read_to_string(&canonical)
         .map_err(|e| format!("Error al leer el archivo: {}", e))
@@ -159,17 +183,10 @@ fn update_markdown_file(app_handle: tauri::AppHandle, relative_path: String, con
         return Err("Solo se pueden escribir archivos .md.".to_string());
     }
 
-    let canonical = candidate
-        .canonicalize()
-        .map_err(|_| format!("Archivo no encontrado: {}", relative_path))?;
-
-    let canonical_root = wiki_root
-        .canonicalize()
-        .map_err(|e| format!("Error al resolver la raíz de la wiki: {}", e))?;
-
-    if !canonical.starts_with(&canonical_root) {
-        return Err("Ruta no permitida: fuera de la wiki.".to_string());
+    if !candidate.exists() {
+        return Err(format!("Archivo no encontrado: {}", relative_path));
     }
+    let canonical = validate_within_wiki_root(wiki_root, &candidate)?;
 
     std::fs::write(&canonical, content.as_bytes())
         .map_err(|e| format!("Error al escribir el archivo: {}", e))
@@ -270,17 +287,10 @@ fn delete_markdown_file(app_handle: tauri::AppHandle, relative_path: String) -> 
         return Err("Solo se pueden eliminar archivos .md.".to_string());
     }
 
-    let canonical = candidate
-        .canonicalize()
-        .map_err(|_| format!("Archivo no encontrado: {}", relative_path))?;
-
-    let canonical_root = wiki_root
-        .canonicalize()
-        .map_err(|e| format!("Error al resolver la raíz de la wiki: {}", e))?;
-
-    if !canonical.starts_with(&canonical_root) {
-        return Err("Ruta no permitida: fuera de la wiki.".to_string());
+    if !candidate.exists() {
+        return Err(format!("Archivo no encontrado: {}", relative_path));
     }
+    let canonical = validate_within_wiki_root(wiki_root, &candidate)?;
 
     if !canonical.is_file() {
         return Err("El archivo no existe o no es un archivo regular.".to_string());
@@ -309,17 +319,10 @@ fn export_markdown_file(app_handle: tauri::AppHandle, relative_path: String, tar
         return Err("Solo se pueden exportar archivos .md.".to_string());
     }
 
-    let canonical_root = wiki_root
-        .canonicalize()
-        .map_err(|e| format!("Error al resolver la raíz de la wiki: {}", e))?;
-
-    let canonical_source = source_candidate
-        .canonicalize()
-        .map_err(|_| format!("Archivo no encontrado: {}", relative_path))?;
-
-    if !canonical_source.starts_with(&canonical_root) {
-        return Err("Ruta no permitida: fuera de la wiki.".to_string());
+    if !source_candidate.exists() {
+        return Err(format!("Archivo no encontrado: {}", relative_path));
     }
+    let canonical_source = validate_within_wiki_root(wiki_root, &source_candidate)?;
 
     if !canonical_source.is_file() {
         return Err("El archivo no existe o no es un archivo regular.".to_string());
@@ -863,5 +866,41 @@ mod tests {
         let c = "inicio del texto buscar_esto final del texto";
         let s = extract_snippet(c, "buscar_esto", 40);
         assert!(s.contains("buscar_esto"), "snippet debe contener el término buscado");
+    }
+
+    #[test]
+    fn validate_within_root_allows_existing_file() {
+        let td = TempDir::new("vwwr_existing");
+        let root = td.path();
+        std::fs::create_dir_all(root.join("notes")).unwrap();
+        let file = root.join("notes").join("nota.md");
+        std::fs::write(&file, "contenido").unwrap();
+
+        let result = validate_within_wiki_root(root, &file);
+        assert!(result.is_ok(), "archivo dentro del root debe permitirse");
+    }
+
+    #[test]
+    fn validate_within_root_allows_new_file_via_parent() {
+        let td = TempDir::new("vwwr_new_file");
+        let root = td.path();
+        std::fs::create_dir_all(root.join("notes")).unwrap();
+        let new_file = root.join("notes").join("nueva-nota.md");
+
+        let result = validate_within_wiki_root(root, &new_file);
+        assert!(result.is_ok(), "archivo nuevo con parent válido debe permitirse");
+    }
+
+    #[test]
+    fn validate_within_root_rejects_path_outside_root() {
+        let td = TempDir::new("vwwr_outside");
+        let root = td.path().join("wiki");
+        std::fs::create_dir_all(&root).unwrap();
+        let outside = td.path().join("other.md");
+        std::fs::write(&outside, "evil").unwrap();
+
+        let result = validate_within_wiki_root(&root, &outside);
+        assert!(result.is_err(), "archivo fuera del root debe rechazarse");
+        assert!(result.unwrap_err().contains("fuera de la wiki"));
     }
 }

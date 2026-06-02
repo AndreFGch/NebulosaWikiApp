@@ -104,6 +104,16 @@ NebulosaWiki-Portable/
 
 ---
 
+## Atajos de teclado
+
+| Atajo | Acción |
+|---|---|
+| `Ctrl + P` | Abrir paleta de comandos |
+| `Ctrl + S` | Guardar nota en modo edición |
+| `Esc` | Cerrar búsqueda, limpiar selección o salir de flujos secundarios según el contexto |
+
+---
+
 ## Integración con Claude Code
 
 Nebulosa Wiki puede usarse como base de conocimiento Markdown para trabajar con Claude Code.
@@ -131,6 +141,21 @@ claude
 - Microsoft Edge WebView2 Runtime disponible en el sistema.
 
 En Windows 11 normalmente WebView2 ya viene incluido. En algunos equipos con Windows 10 podría ser necesario instalar WebView2 Runtime.
+
+---
+
+## Notas para Windows
+
+Nebulosa Wiki se distribuye como aplicación portable para Windows.
+
+Como el ejecutable no está firmado digitalmente todavía, Windows SmartScreen podría mostrar una advertencia al abrirlo por primera vez. Esto es común en aplicaciones independientes o proyectos open source sin certificado de firma.
+
+Recomendación:
+
+- Descargar siempre desde la sección oficial de Releases del repositorio.
+- Verificar que el archivo descargado sea `NebulosaWiki-Portable-v0.1.0.zip` o la versión portable más reciente.
+- Descomprimir el ZIP en una carpeta propia.
+- Ejecutar `Nebulosa Wiki.exe`.
 
 ---
 
@@ -224,6 +249,17 @@ v0.1.0 Portable
 ```
 
 Primera versión funcional publicada como aplicación portable para Windows.
+
+---
+
+## Limitaciones conocidas
+
+- No tiene sincronización entre dispositivos.
+- No tiene autosave automático todavía.
+- No detecta automáticamente cambios hechos desde editores externos.
+- No tiene firma digital de Windows.
+- El rendimiento del grafo puede variar en wikis muy grandes.
+- No reemplaza un sistema de backup externo; el backup manual ayuda, pero se recomienda mantener copias adicionales.
 
 ---
 

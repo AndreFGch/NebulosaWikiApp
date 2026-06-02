@@ -710,19 +710,21 @@ fn search_score(
     title: &str,
     tags_text: &str,
     relative_path: &str,
-    content: &str,
+    content_norm: &str,
 ) -> i32 {
     if normalize_search_text(title).contains(query_norm) { return 50; }
     if normalize_search_text(tags_text).contains(query_norm) { return 40; }
     if normalize_search_text(relative_path).contains(query_norm) { return 30; }
-    let content_norm = normalize_search_text(content);
-    if wikilink_contains(&content_norm, query_norm) { return 20; }
+    if wikilink_contains(content_norm, query_norm) { return 20; }
     if content_norm.contains(query_norm) { return 10; }
     0
 }
 
+// Cantidad maxima de resultados devueltos por la busqueda global.
+const SEARCH_RESULT_LIMIT: usize = 30;
+
 // Ordena por score desc, luego title asc (case-insensitive), luego ruta asc.
-// Trunca a 30 despues de ordenar (no durante el recorrido).
+// Trunca a SEARCH_RESULT_LIMIT despues de ordenar (no durante el recorrido).
 fn rank_results(mut scored: Vec<ScoredResult>) -> Vec<SearchResult> {
     scored.sort_by(|a, b| {
         b.score
@@ -730,7 +732,7 @@ fn rank_results(mut scored: Vec<ScoredResult>) -> Vec<SearchResult> {
             .then_with(|| a.result.title.to_lowercase().cmp(&b.result.title.to_lowercase()))
             .then_with(|| a.result.relative_path.cmp(&b.result.relative_path))
     });
-    scored.into_iter().take(30).map(|s| s.result).collect()
+    scored.into_iter().take(SEARCH_RESULT_LIMIT).map(|s| s.result).collect()
 }
 
 fn walk_search(
@@ -752,7 +754,8 @@ fn walk_search(
                 Ok(c) => c,
                 Err(_) => continue,
             };
-            if !normalize_search_text(&content).contains(query_norm) { continue; }
+            let content_norm = normalize_search_text(&content);
+            if !content_norm.contains(query_norm) { continue; }
             let relative = path.strip_prefix(root).unwrap_or(&path);
             let relative_path = relative.to_string_lossy().replace('\\', "/");
             let folder = relative
@@ -764,7 +767,7 @@ fn walk_search(
             let title = extract_search_title(&content, &stem);
             let snippet = extract_snippet(&content, query_lower, 160);
             let tags_text = extract_tags_text(&content);
-            let score = search_score(query_norm, &title, &tags_text, &relative_path, &content);
+            let score = search_score(query_norm, &title, &tags_text, &relative_path, &content_norm);
             results.push(ScoredResult {
                 score,
                 result: SearchResult { relative_path, title, folder, snippet },
@@ -953,7 +956,7 @@ mod tests {
             scored.push(sr(i, &format!("Nota {:02}", i), &format!("n{:02}.md", i)));
         }
         let ranked = rank_results(scored);
-        assert_eq!(ranked.len(), 30);
+        assert_eq!(ranked.len(), SEARCH_RESULT_LIMIT);
         assert_eq!(ranked[0].title, "Nota 39");
     }
 

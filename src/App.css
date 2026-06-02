@@ -1292,6 +1292,37 @@ button.nw-wikilink--missing:disabled {
   font-style: italic;
 }
 
+.nw-home-empty {
+  background: var(--surface);
+  border: 1px solid rgba(124, 106, 247, 0.13);
+  border-radius: 12px;
+  padding: 28px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nw-home-empty-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.nw-home-empty-desc {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.nw-home-empty-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
 /* ── Edit mode ──────────────────────────────────────────────── */
 .nw-edit-panel {
   display: flex;

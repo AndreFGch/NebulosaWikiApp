@@ -1788,6 +1788,20 @@ function App() {
               {wikiRoot && <p className="nw-home-path">Wiki: {wikiRoot}</p>}
             </div>
 
+            {!loading && !error && notes.length === 0 && (
+              <div className="nw-home-empty">
+                <p className="nw-home-empty-title">Tu wiki está vacía</p>
+                <p className="nw-home-empty-desc">Crea tu primera nota, importa archivos Markdown o configura otra carpeta de wiki para empezar.</p>
+                <div className="nw-home-empty-actions">
+                  <button className="nw-home-action nw-home-action--primary" onClick={openNewNoteModal}>+ Crear nota</button>
+                  <button className="nw-home-action" onClick={handleCreateDailyNote}>◷ Nota diaria</button>
+                  <button className="nw-home-action" onClick={handleCreateQuickNote}>✦ Nota rápida</button>
+                  <button className="nw-home-action" onClick={openImportModal}>⇣ Importar Markdown</button>
+                  <button className="nw-home-action" onClick={() => { setWikiRootDraft(wikiRoot); setWikiRootError(null); setShowSettingsModal(true); }}>⚙ Ajustes</button>
+                </div>
+              </div>
+            )}
+
             <div className="nw-home-stats">
               <div className="nw-home-stat">
                 <span className="nw-home-stat-value">{loading ? "—" : notes.length}</span>

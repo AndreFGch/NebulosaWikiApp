@@ -1788,6 +1788,17 @@ function App() {
               {wikiRoot && <p className="nw-home-path">Wiki: {wikiRoot}</p>}
             </div>
 
+            {!loading && error && (
+              <div className="nw-home-empty nw-home-error">
+                <p className="nw-home-empty-title">No se pudo cargar la wiki configurada.</p>
+                <p className="nw-home-empty-desc">Verifica que la carpeta exista o selecciona otra ruta desde Ajustes.</p>
+                <p className="nw-home-error-detail">{error}</p>
+                <div className="nw-home-empty-actions">
+                  <button className="nw-home-action nw-home-action--primary" onClick={() => { setWikiRootDraft(wikiRoot); setWikiRootError(null); setShowSettingsModal(true); }}>⚙ Abrir ajustes</button>
+                </div>
+              </div>
+            )}
+
             {!loading && !error && notes.length === 0 && (
               <div className="nw-home-empty">
                 <p className="nw-home-empty-title">Tu wiki está vacía</p>

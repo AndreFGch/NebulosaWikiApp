@@ -621,6 +621,23 @@ fn extract_search_title(content: &str, stem: &str) -> String {
     stem.to_string()
 }
 
+fn normalize_search_text(input: &str) -> String {
+    input
+        .chars()
+        .map(|c| match c {
+            'á' | 'à' | 'ä' | 'â' | 'Á' | 'À' | 'Ä' | 'Â' => 'a',
+            'é' | 'è' | 'ë' | 'ê' | 'É' | 'È' | 'Ë' | 'Ê' => 'e',
+            'í' | 'ì' | 'ï' | 'î' | 'Í' | 'Ì' | 'Ï' | 'Î' => 'i',
+            'ó' | 'ò' | 'ö' | 'ô' | 'Ó' | 'Ò' | 'Ö' | 'Ô' => 'o',
+            'ú' | 'ù' | 'ü' | 'û' | 'Ú' | 'Ù' | 'Ü' | 'Û' => 'u',
+            'ñ' | 'Ñ' => 'n',
+            'ç' | 'Ç' => 'c',
+            other => other,
+        })
+        .collect::<String>()
+        .to_lowercase()
+}
+
 fn extract_snippet(content: &str, query_lower: &str, max_chars: usize) -> String {
     let content_lower = content.to_lowercase();
     if let Some(byte_pos) = content_lower.find(query_lower) {
@@ -644,6 +661,7 @@ fn walk_search(
     dir: &Path,
     root: &Path,
     query_lower: &str,
+    query_norm: &str,
     results: &mut Vec<SearchResult>,
 ) -> std::io::Result<()> {
     if results.len() >= 30 { return Ok(()); }
@@ -654,13 +672,13 @@ fn walk_search(
         if path.is_dir() {
             let name = path.file_name().unwrap_or_default().to_string_lossy();
             if name.starts_with('.') || name == "node_modules" { continue; }
-            walk_search(&path, root, query_lower, results)?;
+            walk_search(&path, root, query_lower, query_norm, results)?;
         } else if path.extension().map_or(false, |e| e.eq_ignore_ascii_case("md")) {
             let content = match std::fs::read_to_string(&path) {
                 Ok(c) => c,
                 Err(_) => continue,
             };
-            if !content.to_lowercase().contains(query_lower) { continue; }
+            if !normalize_search_text(&content).contains(query_norm) { continue; }
             let relative = path.strip_prefix(root).unwrap_or(&path);
             let relative_path = relative.to_string_lossy().replace('\\', "/");
             let folder = relative
@@ -684,13 +702,14 @@ fn search_markdown_content(app_handle: tauri::AppHandle, query: String) -> Resul
         return Err("La búsqueda debe tener al menos 2 caracteres.".to_string());
     }
     let query_lower = q.to_lowercase();
+    let query_norm = normalize_search_text(q);
     let wiki_root_buf = get_configured_wiki_root(&app_handle)?;
     let wiki_root = wiki_root_buf.as_path();
     if !wiki_root.exists() {
         return Err(format!("La carpeta de la wiki no existe: {}", wiki_root.display()));
     }
     let mut results = Vec::new();
-    walk_search(wiki_root, wiki_root, &query_lower, &mut results)
+    walk_search(wiki_root, wiki_root, &query_lower, &query_norm, &mut results)
         .map_err(|e| format!("Error al buscar: {}", e))?;
     Ok(results)
 }
@@ -789,6 +808,27 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[test]
+    fn normalize_search_text_removes_accents() {
+        assert_eq!(normalize_search_text("árbol"), "arbol");
+        assert_eq!(normalize_search_text("búsqueda"), "busqueda");
+        assert_eq!(normalize_search_text("André"), "andre");
+        assert_eq!(normalize_search_text("acción"), "accion");
+        assert_eq!(normalize_search_text("comunicación"), "comunicacion");
+        assert_eq!(normalize_search_text("niño"), "nino");
+    }
+
+    #[test]
+    fn content_search_matches_without_accents() {
+        let normalized =
+            normalize_search_text("Vestibulum búsqueda árbol comunicación acción André.");
+        assert!(normalized.contains("busqueda"));
+        assert!(normalized.contains("arbol"));
+        assert!(normalized.contains("comunicacion"));
+        assert!(normalized.contains("accion"));
+        assert!(normalized.contains("andre"));
     }
 
     #[test]

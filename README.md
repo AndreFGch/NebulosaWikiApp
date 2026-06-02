@@ -10,15 +10,15 @@ Está pensada para organizar conocimiento personal, notas conectadas, documentac
 
 ### Dashboard
 
-![Dashboard de Nebulosa Wiki](docs/screenshots/home.png)
+![Dashboard de Nebulosa Wiki](docs/screenshots/home.jpg)
 
 ### Grafo visual
 
-![Grafo visual de notas](docs/screenshots/graph.png)
+![Grafo visual de notas](docs/screenshots/graph.jpg)
 
 ### Editor Markdown
 
-![Editor Markdown de Nebulosa Wiki](docs/screenshots/editor.png)
+![Editor Markdown de Nebulosa Wiki](docs/screenshots/editor.jpg)
 
 ---
 

@@ -1596,12 +1596,12 @@ function App() {
         return node?.tags.map(t => t.toLowerCase()).includes(activeTag) ?? false;
       });
     }
-    const q = tagFromQuery ? null : searchQuery.trim().toLowerCase();
+    const q = tagFromQuery ? null : normalizeKey(searchQuery);
     if (q) {
       result = result.filter(n =>
-        n.title.toLowerCase().includes(q) ||
-        n.folder.toLowerCase().includes(q) ||
-        n.relativePath.toLowerCase().includes(q)
+        normalizeKey(n.title).includes(q) ||
+        normalizeKey(n.folder).includes(q) ||
+        normalizeKey(n.relativePath).includes(q)
       );
     }
     return result;
@@ -1700,7 +1700,7 @@ function App() {
             <input
               className="nw-search-input"
               type="text"
-              placeholder="Buscar nota..."
+              placeholder="Buscar notas… Enter para contenido"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={e => {
@@ -1742,6 +1742,9 @@ function App() {
             )}
           </div>
         )}
+        {isSidebarOpen && searchQuery && !activeTag && (
+          <div className="nw-quick-search-label">Navegación rápida</div>
+        )}
         {isSidebarOpen && (
           <ul className="nw-note-list">
             {filteredNotes.map((note) => (
@@ -1762,7 +1765,7 @@ function App() {
         {isSidebarOpen && isSearchOpen && (contentSearchLoading || contentSearchRan) && (
           <div className="nw-content-search">
             <div className="nw-content-search-header">
-              {contentSearchLoading ? "Buscando…" : `Contenido (${contentSearchResults.length})`}
+              {contentSearchLoading ? "Buscando en contenido…" : `Resultados en contenido (${contentSearchResults.length})`}
             </div>
             {contentSearchError && <div className="nw-content-search-error">{contentSearchError}</div>}
             {contentSearchResults.map(r => (

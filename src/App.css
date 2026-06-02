@@ -1790,6 +1790,15 @@ button.nw-wikilink--missing:disabled {
   scrollbar-color: var(--border) transparent;
 }
 
+.nw-quick-search-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-dim);
+  padding: 7px 14px 4px;
+}
+
 .nw-content-search-header {
   font-size: 0.6rem;
   font-weight: 700;

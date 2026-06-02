@@ -11,13 +11,21 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 - Ctrl+S para guardar notas en modo edición.
 - Indicador visual de cambios sin guardar en el panel de detalle.
 - Checklist manual de smoke test para validar releases (`docs/smoke-test.md`).
+- Botón Recargar wiki para sincronizar manualmente cambios realizados desde editores externos.
+- Empty state con acciones de onboarding cuando la wiki está vacía.
+- Mensaje de error amigable con acción directa a Ajustes cuando la wiki no puede cargarse.
+- Selector nativo de carpeta para configurar la ruta de wiki desde Ajustes (`@tauri-apps/plugin-dialog`).
+- Tests unitarios Rust para validación de rutas y lógica de acceso a la wiki.
 
 ### Changed
 - `walk_dir` ahora omite directorios ocultos (`.nebulosa`, `.git`, `.codegraph`, etc.).
+- README actualizado con atajos de teclado, notas sobre Windows SmartScreen, screenshots y limitaciones conocidas.
+- Helper `validate_within_wiki_root` extraído para centralizar la validación de rutas dentro de la wiki root.
 
 ### Fixed
 - Las notas dentro de carpetas ocultas ya no aparecen en el sidebar ni en el grafo.
 - Se muestra advertencia de confirmación antes de navegar si hay cambios sin guardar.
+- Recargar wiki actualiza también el contenido de la nota seleccionada si todavía existe en disco.
 
 ### Security
 - Content Security Policy activada en Tauri. La app ya no corre con `csp: null`.

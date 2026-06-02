@@ -101,6 +101,10 @@ NebulosaWiki-Portable/
 - Paleta de comandos con `Ctrl + P`.
 - Toasts de confirmación para operaciones importantes.
 - Ruta de wiki configurable desde Ajustes.
+- Selector nativo de carpeta para configurar la ruta de wiki.
+- Indicador visual de cambios sin guardar en el panel de edición.
+- Advertencia al navegar o recargar con cambios sin guardar.
+- Recargar wiki manualmente para sincronizar cambios realizados desde editores externos.
 
 ---
 
@@ -256,7 +260,7 @@ Primera versión funcional publicada como aplicación portable para Windows.
 
 - No tiene sincronización entre dispositivos.
 - No tiene autosave automático todavía.
-- No detecta automáticamente cambios hechos desde editores externos.
+- No detecta automáticamente cambios hechos desde editores externos; se puede sincronizar manualmente con el botón Recargar wiki.
 - No tiene firma digital de Windows.
 - El rendimiento del grafo puede variar en wikis muy grandes.
 - No reemplaza un sistema de backup externo; el backup manual ayuda, pero se recomienda mantener copias adicionales.
@@ -267,7 +271,7 @@ Primera versión funcional publicada como aplicación portable para Windows.
 
 Ideas futuras:
 
-- Selector nativo de carpetas.
+- Detección automática de cambios externos (file watcher).
 - Backup comprimido en ZIP.
 - Mejoras visuales del grafo.
 - Mejoras de rendimiento en bundles grandes.

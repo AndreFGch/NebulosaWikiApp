@@ -1133,6 +1133,15 @@ function App() {
     if (result) setWikiRootDraft(result as string);
   }, []);
 
+  const handleBrowseImportFile = useCallback(async () => {
+    const result = await openDialog({
+      multiple: false,
+      directory: false,
+      filters: [{ name: "Markdown", extensions: ["md"] }]
+    });
+    if (typeof result === "string") setImportSourcePath(result);
+  }, []);
+
   const openExportModal = useCallback(() => {
     setExportTargetPath("");
     setExportError(null);
@@ -2421,6 +2430,9 @@ function App() {
                   }}
                 />
               </label>
+              <button className="nw-modal-btn nw-modal-btn--cancel" style={{ marginTop: "6px" }} onClick={handleBrowseImportFile} type="button">
+                Examinar…
+              </button>
               <p className="nw-modal-hint">Pegá la ruta completa del archivo Markdown a importar.</p>
               <label className="nw-modal-label">
                 Carpeta destino

@@ -369,7 +369,7 @@ function buildRadialPositions(
   }
 
   if (!rootId || !adj.has(rootId)) {
-    const r = 240;
+    const r = Math.max(240, (nodes.length * MIN_SPACING) / TAU);
     nodes.forEach((n, i) => {
       const angle = (TAU * i) / nodes.length - Math.PI / 2;
       positions.set(n.id, { x: CX + r * Math.cos(angle), y: CY + r * Math.sin(angle) });
@@ -419,7 +419,8 @@ function buildRadialPositions(
 
   if (disconnected.length > 0) {
     const minR = (disconnected.length * MIN_SPACING) / TAU;
-    const r = Math.max(580, minR);
+    const disconnectedRadius = Math.max(240, Math.sqrt(disconnected.length) * 52);
+    const r = Math.max(disconnectedRadius, minR);
     disconnected.forEach((id, i) => {
       const angle = (TAU * i) / disconnected.length + Math.PI / 6;
       positions.set(id, { x: CX + r * Math.cos(angle), y: CY + r * Math.sin(angle) });

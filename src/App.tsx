@@ -786,6 +786,9 @@ function App() {
       .catch((err) => { setContentError(String(err)); setContentLoading(false); });
   }, [detailMode, editContent, noteContent]);
 
+  const handleNoteClickRef = useRef(handleNoteClick);
+  useEffect(() => { handleNoteClickRef.current = handleNoteClick; }, [handleNoteClick]);
+
   const clearRecentNotes = useCallback(() => {
     setRecentNotePaths([]);
     localStorage.removeItem("nebulosa.recentNotes");
@@ -1497,7 +1500,7 @@ function App() {
       if (!evt.target.data("exists")) return;
       const relPath: string = evt.target.data("relativePath");
       const note = notes.find((n) => n.relativePath === relPath);
-      if (note) handleNoteClick(note);
+      if (note) handleNoteClickRef.current(note);
     });
 
     cy.on("tap", (evt) => {
@@ -1513,7 +1516,7 @@ function App() {
       cy.destroy();
       cyRef.current = null;
     };
-  }, [graphReady, wikiGraph, notes, handleNoteClick]);
+  }, [graphReady, wikiGraph, notes]);
 
   useEffect(() => {
     selectedNoteRef.current = selectedNote;

@@ -1150,6 +1150,15 @@ function App() {
     if (typeof result === "string") setExportTargetPath(result);
   }, [selectedNote]);
 
+  const handleBrowseExportWikiDir = useCallback(async () => {
+    const result = await openDialog({ multiple: false, directory: true });
+    if (typeof result === "string") {
+      setExportWikiTargetDir(result);
+      setExportWikiError(null);
+      setExportWikiSuccess(null);
+    }
+  }, []);
+
   const openExportModal = useCallback(() => {
     setExportTargetPath("");
     setExportError(null);
@@ -2344,6 +2353,9 @@ function App() {
                   }}
                 />
               </label>
+              <button className="nw-modal-btn nw-modal-btn--cancel" style={{ marginTop: "6px" }} onClick={handleBrowseExportWikiDir} type="button">
+                Examinar…
+              </button>
               <p className="nw-modal-hint">Se copiarán todos los archivos .md preservando carpetas. No se sobrescriben archivos existentes.</p>
               {exportWikiSuccess && <p className="nw-modal-success">{exportWikiSuccess}</p>}
               {exportWikiError && <p className="nw-modal-error">{exportWikiError}</p>}

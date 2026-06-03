@@ -657,6 +657,7 @@ function App() {
   const [graphReady, setGraphReady] = useState(false);
 
   const [visibleGraphTypes, setVisibleGraphTypes] = useState<string[]>(ALL_GRAPH_TYPES);
+  const [graphViewMode, setGraphViewMode] = useState<"global" | "local">("global");
 
   const toggleGraphType = useCallback((type: string) => {
     setVisibleGraphTypes(prev => {
@@ -1555,18 +1556,62 @@ function App() {
   }, [selectedNote]);
 
   useEffect(() => {
+    if (!selectedNote && graphViewMode === "local") setGraphViewMode("global");
+  }, [selectedNote, graphViewMode]);
+
+  useEffect(() => {
     const cy = cyRef.current;
     if (!cy || !graphReady) return;
     const visibleSet = new Set(visibleGraphTypes);
-    const toShow = cy.nodes().filter(n => visibleSet.has(n.data("noteType") as string));
-    const toHide = cy.nodes().filter(n => !visibleSet.has(n.data("noteType") as string));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cya = cy as any;
-    cya.edges().show();
-    (toShow as any).show();
-    (toHide as any).hide();
-    (toHide.connectedEdges() as any).hide();
-  }, [visibleGraphTypes, graphReady]);
+
+    if (graphViewMode === "local" && selectedNote) {
+      const centerId = sanitizeId(selectedNote.relativePath);
+      const centerNode = cy.getElementById(centerId);
+
+      if (centerNode.empty()) {
+        // center node not in cy — fallback to global behavior
+        const toShow = cy.nodes().filter(n => visibleSet.has(n.data("noteType") as string));
+        const toHide = cy.nodes().filter(n => !visibleSet.has(n.data("noteType") as string));
+        cya.edges().show();
+        (toShow as any).show();
+        (toHide as any).hide();
+        (toHide.connectedEdges() as any).hide();
+        return;
+      }
+
+      const relatedEdges = centerNode.connectedEdges();
+      const neighborNodes = relatedEdges.connectedNodes().not(centerNode);
+
+      const localNodeIds = new Set<string>([centerId]);
+      neighborNodes.forEach((n) => localNodeIds.add(n.id()));
+
+      const relatedEdgeIds = new Set<string>();
+      relatedEdges.forEach((e) => relatedEdgeIds.add(e.id()));
+
+      cy.nodes().forEach((n) => {
+        if (localNodeIds.has(n.id()) && visibleSet.has(n.data("noteType") as string)) (n as any).show();
+        else (n as any).hide();
+      });
+
+      cya.edges().forEach((e: any) => {
+        if (
+          relatedEdgeIds.has(e.id()) &&
+          visibleSet.has(cy.getElementById(e.data("source")).data("noteType") as string) &&
+          visibleSet.has(cy.getElementById(e.data("target")).data("noteType") as string)
+        ) e.show();
+        else e.hide();
+      });
+    } else {
+      const toShow = cy.nodes().filter(n => visibleSet.has(n.data("noteType") as string));
+      const toHide = cy.nodes().filter(n => !visibleSet.has(n.data("noteType") as string));
+      cya.edges().show();
+      (toShow as any).show();
+      (toHide as any).hide();
+      (toHide.connectedEdges() as any).hide();
+    }
+  }, [visibleGraphTypes, graphReady, graphViewMode, selectedNote]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -1948,8 +1993,17 @@ function App() {
             </span>
           )}
           <div className="nw-graph-chips">
-            <span className="nw-graph-chip nw-graph-chip--active">Global</span>
-            {selectedNote && <span className="nw-graph-chip nw-graph-chip--focus">Foco</span>}
+            <span
+              className={`nw-graph-chip${graphViewMode === "global" ? " nw-graph-chip--active" : ""}`}
+              onClick={() => setGraphViewMode("global")}
+              style={{ cursor: "pointer" }}
+            >Global</span>
+            <span
+              className={`nw-graph-chip${graphViewMode === "local" ? " nw-graph-chip--active" : selectedNote ? " nw-graph-chip--focus" : " nw-graph-chip--dim"}`}
+              onClick={() => { if (selectedNote) setGraphViewMode("local"); else showToast("info", "Seleccioná una nota primero"); }}
+              style={{ cursor: selectedNote ? "pointer" : "default" }}
+              title={!selectedNote ? "Seleccioná una nota para activar la vista local" : undefined}
+            >Local</span>
             <span className="nw-graph-chip nw-graph-chip--dim">Índices ocultos</span>
           </div>
           {graphReady && (
@@ -1980,8 +2034,17 @@ function App() {
                   <div className="nw-ctrl-section">
                     <span className="nw-ctrl-title">Vista</span>
                     <div className="nw-ctrl-row">
-                      <span className="nw-ctrl-chip nw-ctrl-chip--active">Global</span>
-                      <span className="nw-ctrl-chip nw-ctrl-chip--disabled" title="Próximamente">Local</span>
+                      <span
+                        className={`nw-ctrl-chip${graphViewMode === "global" ? " nw-ctrl-chip--active" : ""}`}
+                        onClick={() => setGraphViewMode("global")}
+                        style={{ cursor: "pointer" }}
+                      >Global</span>
+                      <span
+                        className={`nw-ctrl-chip${graphViewMode === "local" ? " nw-ctrl-chip--active" : selectedNote ? "" : " nw-ctrl-chip--disabled"}`}
+                        onClick={() => { if (selectedNote) setGraphViewMode("local"); else showToast("info", "Seleccioná una nota primero"); }}
+                        style={{ cursor: selectedNote ? "pointer" : "default" }}
+                        title={!selectedNote ? "Seleccioná una nota para activar la vista local" : undefined}
+                      >Local</span>
                     </div>
                   </div>
                   <div className="nw-ctrl-section">

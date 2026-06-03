@@ -1069,6 +1069,15 @@ function App() {
     setShowBackupModal(true);
   }, []);
 
+  const handleBrowseBackupDir = useCallback(async () => {
+    const result = await openDialog({ multiple: false, directory: true });
+    if (typeof result === "string") {
+      setBackupTargetBaseDir(result);
+      setBackupError(null);
+      setBackupSuccess(null);
+    }
+  }, []);
+
   const handleBackup = useCallback(async () => {
     const dir = backupTargetBaseDir.trim();
     if (!dir) { setBackupError("La carpeta base es requerida."); return; }
@@ -2303,6 +2312,9 @@ function App() {
                   }}
                 />
               </label>
+              <button className="nw-modal-btn nw-modal-btn--cancel" style={{ marginTop: "6px" }} onClick={handleBrowseBackupDir} type="button">
+                Examinar…
+              </button>
               <p className="nw-modal-hint">Se creará una carpeta con timestamp y se copiarán todos los Markdown. No se sobrescribe nada.</p>
               {backupSuccess && (
                 <div className="nw-backup-success">

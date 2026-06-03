@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import cytoscape from "cytoscape";
@@ -1141,6 +1141,14 @@ function App() {
     });
     if (typeof result === "string") setImportSourcePath(result);
   }, []);
+
+  const handleBrowseExportFile = useCallback(async () => {
+    const result = await saveDialog({
+      filters: [{ name: "Markdown", extensions: ["md"] }],
+      defaultPath: selectedNote ? `${selectedNote.title}.md` : "nota.md"
+    });
+    if (typeof result === "string") setExportTargetPath(result);
+  }, [selectedNote]);
 
   const openExportModal = useCallback(() => {
     setExportTargetPath("");
@@ -2385,6 +2393,9 @@ function App() {
                   }}
                 />
               </label>
+              <button className="nw-modal-btn nw-modal-btn--cancel" style={{ marginTop: "6px" }} onClick={handleBrowseExportFile} type="button">
+                Examinar…
+              </button>
               <p className="nw-modal-hint">Pegá la ruta completa donde guardar la copia. El original no se modifica.</p>
               {exportSuccess && <p className="nw-modal-success">✓ Exportado correctamente.</p>}
               {exportError && <p className="nw-modal-error">{exportError}</p>}

@@ -7,6 +7,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [0.1.1] - 2026-06-03
+
 ### Added
 - Ctrl+S para guardar notas en modo edición.
 - Indicador visual de cambios sin guardar en el panel de detalle.

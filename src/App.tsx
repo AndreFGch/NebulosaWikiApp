@@ -2600,7 +2600,7 @@ function App() {
         ))}
       </div>
       {showSettingsModal && (
-        <div className="nw-modal-backdrop" onClick={() => { setShowSettingsModal(false); setWikiRootError(null); }}>
+        <div className="nw-modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) { setShowSettingsModal(false); setWikiRootError(null); } }}>
           <div className="nw-modal" onClick={e => e.stopPropagation()}>
             <div className="nw-modal-header">
               <span className="nw-modal-title">Ajustes</span>

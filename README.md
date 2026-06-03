@@ -88,10 +88,11 @@ NebulosaWiki-Portable/
 - Nota diaria y nota rápida.
 - Grafo visual de notas con Cytoscape.js.
 - Filtros del grafo por tipo de nota.
+- Toggle Global/Local en el grafo para ver solo la nota seleccionada y sus vecinos directos.
 - Wikilinks estilo `[[Nombre de nota]]`.
 - Crear notas desde enlaces faltantes.
 - Backlinks y enlaces salientes.
-- Búsqueda por título, ruta, tag y contenido.
+- Búsqueda por título, ruta, tag y contenido con normalización de acentos (árbol/arbol, André/Andre) y ranking de relevancia.
 - Filtro por tags desde el sidebar.
 - Historial de notas recientes.
 - Importar archivos Markdown.
@@ -101,7 +102,7 @@ NebulosaWiki-Portable/
 - Paleta de comandos con `Ctrl + P`.
 - Toasts de confirmación para operaciones importantes.
 - Ruta de wiki configurable desde Ajustes.
-- Selector nativo de carpeta para configurar la ruta de wiki.
+- Selectores nativos del sistema operativo para configurar ruta de wiki, importar Markdown, exportar nota, exportar wiki y backup.
 - Indicador visual de cambios sin guardar en el panel de edición.
 - Advertencia al navegar o recargar con cambios sin guardar.
 - Recargar wiki manualmente para sincronizar cambios realizados desde editores externos.
@@ -273,8 +274,11 @@ Ideas futuras:
 
 - Detección automática de cambios externos (file watcher).
 - Backup comprimido en ZIP.
-- Mejoras visuales del grafo.
-- Mejoras de rendimiento en bundles grandes.
+- Mejoras de rendimiento en wikis muy grandes.
+- Grafo calculado en Rust con índice local.
+- División del frontend en módulos separados.
 - Configuración visual persistente.
 - Más plantillas de notas.
+- Tests E2E automatizados.
+- CI para validación automática de builds.
 - Integración más guiada con Claude Code.

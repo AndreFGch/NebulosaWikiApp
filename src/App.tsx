@@ -1585,10 +1585,14 @@ function App() {
       const neighborNodes = relatedEdges.connectedNodes().not(centerNode);
 
       const localNodeIds = new Set<string>([centerId]);
-      neighborNodes.forEach((n) => localNodeIds.add(n.id()));
+      neighborNodes.forEach((n) => {
+        localNodeIds.add(n.id());
+      });
 
       const relatedEdgeIds = new Set<string>();
-      relatedEdges.forEach((e) => relatedEdgeIds.add(e.id()));
+      relatedEdges.forEach((e) => {
+        relatedEdgeIds.add(e.id());
+      });
 
       cy.nodes().forEach((n) => {
         if (localNodeIds.has(n.id()) && visibleSet.has(n.data("noteType") as string)) (n as any).show();

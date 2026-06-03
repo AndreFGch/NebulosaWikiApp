@@ -1,6 +1,6 @@
 [package]
 name = "nebulosa-wiki"
-version = "0.1.0"
+version = "0.1.1"
 description = "Aplicación local-first para gestionar una wiki Markdown"
 authors = ["Nebulosa Wiki Contributors"]
 edition = "2021"

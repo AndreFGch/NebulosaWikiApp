@@ -6,7 +6,7 @@ $ExePath  = "C:\Temp\NebulosaWikiTarget\release\nebulosa-wiki.exe"
 
 $RepoRoot  = "D:\Aplicaciones\NebulosaWikiApp"
 $OutDir    = "$RepoRoot\releases\NebulosaWiki-Portable"
-$ZipPath   = "$RepoRoot\releases\NebulosaWiki-Portable-v0.1.0.zip"
+$ZipPath   = "$RepoRoot\releases\NebulosaWiki-Portable-v0.1.1.zip"
 
 Write-Host "=== Nebulosa Wiki - Build Portable ===" -ForegroundColor Cyan
 Write-Host ""

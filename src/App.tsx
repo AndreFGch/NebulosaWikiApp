@@ -503,9 +503,10 @@ const GRAPH_STYLE = [
       "color": "#7880a2",
       "font-size": "8.5px",
       "z-index": 5,
-      "border-width": 1.2,
-      "border-color": "#5a5090",
-      "border-opacity": 0.8,
+      "border-width": 1.5,
+      "border-color": "#7c6af7",
+      "border-opacity": 0.95,
+      "background-blacken": -0.08,
     } as unknown as cytoscape.Css.Node,
   },
   {

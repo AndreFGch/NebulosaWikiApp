@@ -2255,7 +2255,7 @@ function App() {
       </aside>
 
       {showBackupModal && (
-        <div className="nw-modal-backdrop" onClick={() => { setShowBackupModal(false); setBackupError(null); setBackupSuccess(null); }}>
+        <div className="nw-modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) { setShowBackupModal(false); setBackupError(null); setBackupSuccess(null); } }}>
           <div className="nw-modal" onClick={e => e.stopPropagation()}>
             <div className="nw-modal-header">
               <span className="nw-modal-title">⧉ Backup de wiki</span>
@@ -2305,7 +2305,7 @@ function App() {
         </div>
       )}
       {showExportWikiModal && (
-        <div className="nw-modal-backdrop" onClick={() => { setShowExportWikiModal(false); setExportWikiError(null); setExportWikiSuccess(null); }}>
+        <div className="nw-modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) { setShowExportWikiModal(false); setExportWikiError(null); setExportWikiSuccess(null); } }}>
           <div className="nw-modal" onClick={e => e.stopPropagation()}>
             <div className="nw-modal-header">
               <span className="nw-modal-title">Exportar wiki</span>
@@ -2350,7 +2350,7 @@ function App() {
         </div>
       )}
       {showExportModal && selectedNote && (
-        <div className="nw-modal-backdrop" onClick={() => { setShowExportModal(false); setExportError(null); setExportSuccess(false); }}>
+        <div className="nw-modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) { setShowExportModal(false); setExportError(null); setExportSuccess(false); } }}>
           <div className="nw-modal" onClick={e => e.stopPropagation()}>
             <div className="nw-modal-header">
               <span className="nw-modal-title">Exportar nota</span>
@@ -2399,7 +2399,7 @@ function App() {
         </div>
       )}
       {showImportModal && (
-        <div className="nw-modal-backdrop" onClick={() => { setShowImportModal(false); setImportError(null); }}>
+        <div className="nw-modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) { setShowImportModal(false); setImportError(null); } }}>
           <div className="nw-modal" onClick={e => e.stopPropagation()}>
             <div className="nw-modal-header">
               <span className="nw-modal-title">Importar Markdown</span>
@@ -2461,7 +2461,7 @@ function App() {
         </div>
       )}
       {showDeleteModal && selectedNote && (
-        <div className="nw-modal-backdrop" onClick={() => { setShowDeleteModal(false); setDeleteConfirmText(""); setDeleteError(null); }}>
+        <div className="nw-modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) { setShowDeleteModal(false); setDeleteConfirmText(""); setDeleteError(null); } }}>
           <div className="nw-modal nw-modal--danger" onClick={e => e.stopPropagation()}>
             <div className="nw-modal-header">
               <span className="nw-modal-title">Eliminar nota</span>
@@ -2513,7 +2513,7 @@ function App() {
         </div>
       )}
       {showNewNoteModal && (
-        <div className="nw-modal-backdrop" onClick={() => { setShowNewNoteModal(false); setNewNoteError(null); }}>
+        <div className="nw-modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) { setShowNewNoteModal(false); setNewNoteError(null); } }}>
           <div className="nw-modal" onClick={e => e.stopPropagation()}>
             <div className="nw-modal-header">
               <span className="nw-modal-title">Nueva nota</span>
@@ -2649,7 +2649,7 @@ function App() {
         </div>
       )}
       {isCommandPaletteOpen && (
-        <div className="nw-command-backdrop" onClick={closeCommandPalette}>
+        <div className="nw-command-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) closeCommandPalette(); }}>
           <div className="nw-command-palette" onClick={e => e.stopPropagation()}>
             <input
               className="nw-command-input"

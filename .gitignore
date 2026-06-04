@@ -41,3 +41,5 @@ NebulosaWiki/
 # Portable app data y releases
 data/
 releases/
+
+.codegraph/

@@ -1723,6 +1723,7 @@ function App() {
   return (
     <div className={`nw-shell${!isSidebarOpen ? " nw-shell--sidebar-collapsed" : ""}${!isDetailOpen ? " nw-shell--detail-collapsed" : ""}`}>
       <nav className="nw-ribbon">
+        <span className="nw-ribbon-logo">NW</span>
         <button
           className={`nw-ribbon-btn${mainView === "home" ? " nw-ribbon-btn--active" : ""}`}
           onClick={() => setMainView("home")}
@@ -1774,7 +1775,12 @@ function App() {
       </nav>
       <aside className={`nw-sidebar${!isSidebarOpen ? " nw-sidebar--collapsed" : ""}`}>
         <div className="nw-sidebar-header">
-          {isSidebarOpen && <span className="nw-title">Notas</span>}
+          {isSidebarOpen && (
+            <span className="nw-title">
+              Explorer
+              {wikiRoot && <span className="nw-sidebar-wiki-path" title={wikiRoot}>{wikiRoot.split(/[/\\]/).pop() || wikiRoot}</span>}
+            </span>
+          )}
           {isSidebarOpen && (
             <span className={`nw-status-badge${error ? " nw-status-badge--error" : !loading ? " nw-status-badge--ok" : ""}`}>
               {loading && "Cargando..."}

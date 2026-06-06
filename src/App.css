@@ -30,6 +30,34 @@
   --error: #f87171;
 }
 
+/* ── Alias de compatibilidad → tokens V2 ──────────────────────
+   Variables antiguas apuntan a tokens --nw-* para migración gradual.
+   No eliminar hasta que App.css no referencie nombres viejos.
+   UI-V2.1 — 2026-06-05
+─────────────────────────────────────────────────────────────── */
+:root {
+  --bg:               var(--nw-bg-primary);
+  --surface:          var(--nw-surface);
+  --surface-hover:    var(--nw-surface-hover);
+  --surface-elevated: var(--nw-surface-elevated);
+  --border:           var(--nw-border);
+  --border-subtle:    var(--nw-border-subtle);
+  --accent:           var(--nw-accent);
+  --accent-dim:       var(--nw-accent-soft);
+  --accent-emerald:   var(--nw-success);
+  --accent-amber:     var(--nw-warning);
+  --accent-rose:      var(--nw-error);
+  --accent-cyan:      var(--nw-info);
+  --text:             var(--nw-text-primary);
+  --text-muted:       var(--nw-text-secondary);
+  --text-dim:         var(--nw-text-muted);
+  --badge-bg:         var(--nw-bg-inset);
+  --code-bg:          var(--nw-code-bg);
+  --code-text:        var(--nw-code-text);
+  --ok:               var(--nw-success);
+  --error:            var(--nw-error);
+}
+
 *,
 *::before,
 *::after {

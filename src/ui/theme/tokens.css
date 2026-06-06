@@ -1,0 +1,140 @@
+/* NebulosaWikiApp - semantic tokens V2
+   Prefix: --nw-*
+   Dark-first. Light via [data-theme="light"].
+   No visual classes here. Tokens only.
+   UI-V2.1 - 2026-06-05
+*/
+
+:root {
+  /* Background */
+  --nw-bg-primary:   #090908;
+  --nw-bg-secondary: #0f100e;
+  --nw-bg-inset:     #080806;
+
+  /* Surfaces */
+  --nw-surface:          #12130f;
+  --nw-surface-hover:    #191b15;
+  --nw-surface-elevated: #181a14;
+  --nw-surface-subtle:   #10110d;
+
+  /* Borders */
+  --nw-border:        #2b2d25;
+  --nw-border-subtle: #202219;
+  --nw-border-strong: #3b3e32;
+
+  /* Text */
+  --nw-text-primary:   #f2f0e8;
+  --nw-text-secondary: #b8b3a7;
+  --nw-text-muted:     #7d776a;
+  --nw-text-disabled:  #555044;
+
+  /* Accent - free color, initial value: organic green (temporary, see UI-V2-TOKENS.md) */
+  --nw-accent:          #6ea46f;
+  --nw-accent-rgb:      110 164 111;
+  --nw-accent-contrast: #061007;
+  --nw-accent-soft:     rgb(var(--nw-accent-rgb) / 0.10);
+  --nw-accent-border:   rgb(var(--nw-accent-rgb) / 0.22);
+
+  /* States */
+  --nw-success: #7ccf8a;
+  --nw-warning: #d8b35e;
+  --nw-error:   #e06c75;
+  --nw-info:    #7aa2f7;
+
+  /* Editor / Code */
+  --nw-editor-bg:   #0a0b08;
+  --nw-editor-text: #e8e4d8;
+  --nw-code-bg:     #0b0c09;
+  --nw-code-text:   #c4bfb4;
+
+  /* Radius */
+  --nw-radius-xs:   4px;
+  --nw-radius-sm:   6px;
+  --nw-radius-md:   8px;
+  --nw-radius-lg:   12px;
+  --nw-radius-xl:   16px;
+  --nw-radius-pill: 999px;
+
+  /* Spacing - comfortable */
+  --nw-space-1: 4px;
+  --nw-space-2: 8px;
+  --nw-space-3: 12px;
+  --nw-space-4: 16px;
+  --nw-space-5: 20px;
+  --nw-space-6: 24px;
+  --nw-space-8: 32px;
+
+  /* Typography */
+  --nw-font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --nw-font-mono: "Cascadia Code", "Fira Code", "Consolas", monospace;
+
+  --nw-font-size-xs:   0.68rem;
+  --nw-font-size-sm:   0.75rem;
+  --nw-font-size-md:   0.84rem;
+  --nw-font-size-lg:   0.95rem;
+  --nw-font-size-xl:   1.2rem;
+  --nw-font-size-hero: 2.25rem;
+
+  /* Shadows */
+  --nw-shadow-soft:     0 10px 30px rgb(0 0 0 / 0.18);
+  --nw-shadow-elevated: 0 18px 60px rgb(0 0 0 / 0.35);
+  --nw-shadow-focus:    0 0 0 3px rgb(var(--nw-accent-rgb) / 0.18);
+
+  /* Motion - default */
+  --nw-motion-fast:   120ms;
+  --nw-motion-base:   180ms;
+  --nw-motion-slow:   260ms;
+  --nw-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Light theme */
+[data-theme="light"] {
+  --nw-bg-primary:   #f7f5f0;
+  --nw-bg-secondary: #efede7;
+  --nw-bg-inset:     #e7e3da;
+
+  --nw-surface:          #ffffff;
+  --nw-surface-hover:    #f4f1ea;
+  --nw-surface-elevated: #ffffff;
+  --nw-surface-subtle:   #faf8f3;
+
+  --nw-border:        #ded8cc;
+  --nw-border-subtle: #ebe6dc;
+  --nw-border-strong: #cfc7b9;
+
+  --nw-text-primary:   #171814;
+  --nw-text-secondary: #555044;
+  --nw-text-muted:     #8b8375;
+  --nw-text-disabled:  #b5ada0;
+
+  --nw-success: #2f7d3f;
+  --nw-warning: #9a6b17;
+  --nw-error:   #b8333a;
+  --nw-info:    #2e5aac;
+
+  --nw-editor-bg:   #f0ede6;
+  --nw-editor-text: #1e1f1b;
+  --nw-code-bg:     #e8e4dc;
+  --nw-code-text:   #3d3830;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --nw-motion-fast:   0ms;
+    --nw-motion-base:   0ms;
+    --nw-motion-slow:   0ms;
+    --nw-ease-standard: linear;
+  }
+}
+
+/* Compact density - activate via JS: data-density="compact" on <html> */
+[data-density="compact"] {
+  --nw-space-1: 3px;
+  --nw-space-2: 6px;
+  --nw-space-3: 10px;
+  --nw-space-4: 12px;
+  --nw-space-5: 16px;
+  --nw-space-6: 20px;
+  --nw-space-8: 24px;
+}

@@ -10,16 +10,8 @@ import type { WikiNode, WikiGraph } from "./types/graph";
 import { normalizeKey, stripFrontmatter, preprocessWikilinks, slugify, buildNoteTemplateContent } from "./core/markdown/markdownUtils";
 import { sanitizeId, buildWikiGraph } from "./core/graph/buildWikiGraph";
 import { getRootGraphNode, buildRadialPositions } from "./core/graph/graphUtils";
+import { findNoteByWikilink } from "./core/graph/wikiLinkResolver";
 
-function findNoteByWikilink(link: string, notes: MarkdownFile[]): MarkdownFile | null {
-  const nk = normalizeKey(link);
-  for (const note of notes) {
-    if (normalizeKey(note.title) === nk) return note;
-    const fname = note.relativePath.replace(/\.md$/i, "").split(/[/\\]/).pop() ?? "";
-    if (normalizeKey(fname) === nk) return note;
-  }
-  return null;
-}
 
 const TEMPLATE_FOLDER_MAP: Record<NoteTemplate, string> = {
   simple: "notes", project: "projects", source: "sources",

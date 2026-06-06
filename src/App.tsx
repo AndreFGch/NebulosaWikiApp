@@ -5,59 +5,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import cytoscape from "cytoscape";
 import "./App.css";
-
-interface MarkdownFile {
-  title: string;
-  path: string;
-  relativePath: string;
-  folder: string;
-}
-
-interface WikiNode {
-  id: string;
-  title: string;
-  relativePath: string;
-  folder: string;
-  tags: string[];
-  type: string;
-  outgoingCount: number;
-  backlinkCount: number;
-  isOrphan: boolean;
-  exists: boolean;
-}
-
-interface WikiEdge {
-  id: string;
-  source: string;
-  target: string;
-  label: string;
-  type: string;
-  weight: number;
-  isBacklink: boolean;
-  isBroken: boolean;
-}
-
-interface WikiGraph {
-  nodes: WikiNode[];
-  edges: WikiEdge[];
-  orphanNodes: WikiNode[];
-  brokenLinks: WikiEdge[];
-  tags: string[];
-  folders: string[];
-}
-
-type DetailMode = "preview" | "raw" | "edit";
-type MainView = "home" | "graph";
-type NoteTemplate = "simple" | "project" | "source" | "skill" | "session" | "index";
-type ToastKind = "success" | "error" | "info";
-interface ToastMessage { id: number; kind: ToastKind; message: string; }
-
-interface ContentSearchResult {
-  relativePath: string;
-  title: string;
-  folder: string;
-  snippet: string;
-}
+import type { MarkdownFile, DetailMode, MainView, NoteTemplate, ToastKind, ToastMessage, ContentSearchResult } from "./types/wiki";
+import type { WikiNode, WikiEdge, WikiGraph } from "./types/graph";
 
 function sanitizeId(s: string): string {
   return s.replace(/[^a-zA-Z0-9]/g, "_");

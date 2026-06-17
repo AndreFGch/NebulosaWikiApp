@@ -361,6 +361,32 @@ body {
   background-size: 100% 100%, 100% 100%, 18px 18px;
 }
 
+/* ── Home (welcome) isolation ──────────────────────────────────
+   Only active when mainView === "home" (nw-shell--welcome).
+   Hides the legacy graph chrome so WelcomeScreen owns the panel. */
+.nw-shell--welcome .nw-graph-header,
+.nw-shell--welcome .nw-graph-status,
+.nw-shell--welcome .nw-graph-canvas-wrapper {
+  display: none;
+}
+
+.nw-shell--welcome .nw-graph-panel {
+  border-right: none;
+  background: var(--nw-bg-primary, #07090e);
+}
+
+/* Kill the collapsed detail-panel strip (right-side legacy franja) in home. */
+.nw-shell--welcome .nw-detail-panel {
+  display: none;
+}
+
+/* Rail/sidebar borders use a hardcoded purple accent that clashes with the
+   warm graphite home; soften to the neutral border token here only. */
+.nw-shell--welcome .nw-ribbon,
+.nw-shell--welcome .nw-sidebar {
+  border-right-color: var(--nw-border-subtle);
+}
+
 .nw-graph-overlay {
   position: absolute;
   inset: 0;

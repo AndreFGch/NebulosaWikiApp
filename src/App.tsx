@@ -210,7 +210,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
 
   const [selectedNote, setSelectedNote] = useState<MarkdownFile | null>(null);
-  const [, setRecentNotePaths] = useState<string[]>(() => {
+  const [recentNotePaths, setRecentNotePaths] = useState<string[]>(() => {
     try {
       const raw = localStorage.getItem("nebulosa.recentNotes");
       const parsed = JSON.parse(raw ?? "[]");
@@ -1239,6 +1239,11 @@ function App() {
     ? (wikiGraph.nodes.find((n) => n.relativePath === selectedNote.relativePath) ?? null)
     : null;
 
+  const recentNotes = recentNotePaths
+    .map(p => notes.find(n => n.relativePath === p))
+    .filter((n): n is MarkdownFile => n !== undefined)
+    .slice(0, 3);
+
   const availableTags: string[] = wikiGraph
     ? [...new Set(wikiGraph.nodes.flatMap(n => n.tags).map(t => t.toLowerCase()).filter(Boolean))].sort()
     : [];
@@ -1292,7 +1297,7 @@ function App() {
   const hasUnsavedChanges = detailMode === "edit" && editContent !== noteContent;
 
   return (
-    <div className={`nw-shell${!isSidebarOpen ? " nw-shell--sidebar-collapsed" : ""}${!isDetailOpen ? " nw-shell--detail-collapsed" : ""}`}>
+    <div className={`nw-shell${!isSidebarOpen ? " nw-shell--sidebar-collapsed" : ""}${!isDetailOpen ? " nw-shell--detail-collapsed" : ""}${mainView === "home" ? " nw-shell--welcome" : ""}`}>
       <nav className="nw-ribbon">
         <span className="nw-ribbon-logo">NW</span>
         <button
@@ -1344,6 +1349,7 @@ function App() {
         <button className="nw-ribbon-btn" onClick={handleReloadWiki} title="Recargar wiki">↻</button>
         <button className="nw-ribbon-btn" title="Ajustes" onClick={() => { setWikiRootDraft(wikiRoot); setWikiRootError(null); setShowSettingsModal(true); }}>⚙</button>
       </nav>
+      {mainView !== "home" && (
       <aside className={`nw-sidebar${!isSidebarOpen ? " nw-sidebar--collapsed" : ""}`}>
         <div className="nw-sidebar-header">
           {isSidebarOpen && (
@@ -1453,6 +1459,7 @@ function App() {
           </div>
         )}
       </aside>
+      )}
 
       <main className="nw-graph-panel">
         {mainView === "home" && (
@@ -1466,6 +1473,11 @@ function App() {
             orphanCount={wikiGraph ? wikiGraph.orphanNodes.length : null}
             brokenLinkCount={wikiGraph ? wikiGraph.brokenLinks.length : null}
             canExportNote={Boolean(selectedNote && !contentLoading && !contentError)}
+            recentNotes={recentNotes.map(n => ({ relativePath: n.relativePath, title: n.title, folder: n.folder }))}
+            onOpenNote={(relativePath) => {
+              const note = notes.find(n => n.relativePath === relativePath);
+              if (note) handleNoteClick(note);
+            }}
             onNewNote={openNewNoteModal}
             onOpenGraph={() => setMainView("graph")}
             onDailyNote={handleCreateDailyNote}
@@ -1630,6 +1642,7 @@ function App() {
         </div>
       </main>
 
+      {mainView !== "home" && (
       <aside className={`nw-detail-panel${!isDetailOpen ? " nw-detail-panel--collapsed" : ""}`}>
         <div className="nw-detail-header">
           <button
@@ -1861,6 +1874,7 @@ function App() {
           </div>
         )}
       </aside>
+      )}
 
       {showBackupModal && (
         <div className="nw-modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) { setShowBackupModal(false); setBackupError(null); setBackupSuccess(null); } }}>

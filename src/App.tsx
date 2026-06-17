@@ -12,6 +12,7 @@ import { sanitizeId, buildWikiGraph } from "./core/graph/buildWikiGraph";
 import { getRootGraphNode, buildRadialPositions } from "./core/graph/graphUtils";
 import { findNoteByWikilink } from "./core/graph/wikiLinkResolver";
 import { FOLDER_COLORS, GRAPH_TYPE_LABELS, ALL_GRAPH_TYPES } from "./core/graph/graphConstants";
+import WelcomeScreen from "./ui/welcome/WelcomeScreen";
 
 
 const TEMPLATE_FOLDER_MAP: Record<NoteTemplate, string> = {
@@ -209,7 +210,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
 
   const [selectedNote, setSelectedNote] = useState<MarkdownFile | null>(null);
-  const [recentNotePaths, setRecentNotePaths] = useState<string[]>(() => {
+  const [, setRecentNotePaths] = useState<string[]>(() => {
     try {
       const raw = localStorage.getItem("nebulosa.recentNotes");
       const parsed = JSON.parse(raw ?? "[]");
@@ -366,11 +367,6 @@ function App() {
 
   const handleNoteClickRef = useRef(handleNoteClick);
   useEffect(() => { handleNoteClickRef.current = handleNoteClick; }, [handleNoteClick]);
-
-  const clearRecentNotes = useCallback(() => {
-    setRecentNotePaths([]);
-    localStorage.removeItem("nebulosa.recentNotes");
-  }, []);
 
   const handleSave = useCallback(async () => {
     if (!selectedNote) return;
@@ -1460,106 +1456,30 @@ function App() {
 
       <main className="nw-graph-panel">
         {mainView === "home" && (
-          <div className="nw-home">
-            <div className="nw-home-hero">
-              <h1 className="nw-home-title">Nebulosa Wiki</h1>
-              <p className="nw-home-subtitle">Wiki Markdown local-first para conocimiento conectado.</p>
-              {wikiRoot && <p className="nw-home-path">Wiki: {wikiRoot}</p>}
-            </div>
-
-            {!loading && error && (
-              <div className="nw-home-empty nw-home-error">
-                <p className="nw-home-empty-title">No se pudo cargar la wiki configurada.</p>
-                <p className="nw-home-empty-desc">Verifica que la carpeta exista o selecciona otra ruta desde Ajustes.</p>
-                <p className="nw-home-error-detail">{error}</p>
-                <div className="nw-home-empty-actions">
-                  <button className="nw-home-action nw-home-action--primary" onClick={() => { setWikiRootDraft(wikiRoot); setWikiRootError(null); setShowSettingsModal(true); }}>⚙ Abrir ajustes</button>
-                </div>
-              </div>
-            )}
-
-            {!loading && !error && notes.length === 0 && (
-              <div className="nw-home-empty">
-                <p className="nw-home-empty-title">Tu wiki está vacía</p>
-                <p className="nw-home-empty-desc">Crea tu primera nota, importa archivos Markdown o configura otra carpeta de wiki para empezar.</p>
-                <div className="nw-home-empty-actions">
-                  <button className="nw-home-action nw-home-action--primary" onClick={openNewNoteModal}>+ Crear nota</button>
-                  <button className="nw-home-action" onClick={handleCreateDailyNote}>◷ Nota diaria</button>
-                  <button className="nw-home-action" onClick={handleCreateQuickNote}>✦ Nota rápida</button>
-                  <button className="nw-home-action" onClick={openImportModal}>⇣ Importar Markdown</button>
-                  <button className="nw-home-action" onClick={() => { setWikiRootDraft(wikiRoot); setWikiRootError(null); setShowSettingsModal(true); }}>⚙ Ajustes</button>
-                </div>
-              </div>
-            )}
-
-            <div className="nw-home-stats">
-              <div className="nw-home-stat">
-                <span className="nw-home-stat-value">{loading ? "—" : notes.length}</span>
-                <span className="nw-home-stat-label">notas</span>
-              </div>
-              <div className="nw-home-stat">
-                <span className="nw-home-stat-value">{wikiGraph ? wikiGraph.nodes.filter(n => n.exists).length : "—"}</span>
-                <span className="nw-home-stat-label">nodos</span>
-              </div>
-              <div className="nw-home-stat">
-                <span className="nw-home-stat-value">{wikiGraph ? wikiGraph.edges.filter(e => !e.isBroken).length : "—"}</span>
-                <span className="nw-home-stat-label">enlaces</span>
-              </div>
-              <div className="nw-home-stat">
-                <span className="nw-home-stat-value">{wikiGraph ? wikiGraph.orphanNodes.length : "—"}</span>
-                <span className="nw-home-stat-label">huérfanas</span>
-              </div>
-              <div className="nw-home-stat">
-                <span className="nw-home-stat-value">{wikiGraph ? wikiGraph.brokenLinks.length : "—"}</span>
-                <span className="nw-home-stat-label">rotos</span>
-              </div>
-            </div>
-
-            <div className="nw-home-actions">
-              <button className="nw-home-action nw-home-action--primary" onClick={() => setMainView("graph")}>
-                ◎ Abrir grafo
-              </button>
-              <button className="nw-home-action" onClick={openNewNoteModal}>+ Nueva nota</button>
-              <button className="nw-home-action" onClick={handleCreateDailyNote}>◷ Nota diaria</button>
-              <button className="nw-home-action" onClick={handleCreateQuickNote}>✦ Nota rápida</button>
-              <button className="nw-home-action" onClick={openImportModal}>⇣ Importar</button>
-              <button className="nw-home-action" onClick={openExportWikiModal}>⇡ Exportar wiki</button>
-              <button className="nw-home-action" onClick={openBackupModal}>⧉ Backup</button>
-              {selectedNote && !contentLoading && !contentError && (
-                <>
-                  <button className="nw-home-action" onClick={() => { setEditContent(noteContent); setEditError(null); setDetailMode("edit"); setIsDetailOpen(true); }}>✎ Editar nota</button>
-                  <button className="nw-home-action" onClick={openExportModal}>⇡ Exportar nota</button>
-                </>
-              )}
-            </div>
-
-            <div className="nw-home-recent-card">
-              <div className="nw-home-recent-header">
-                <span>Recientes</span>
-                {recentNotePaths.length > 0 && (
-                  <button className="nw-home-recent-clear" onClick={clearRecentNotes}>Limpiar</button>
-                )}
-              </div>
-              {recentNotePaths.length === 0 ? (
-                <p className="nw-home-recent-empty">Abrí una nota para verla acá.</p>
-              ) : (
-                <ul className="nw-home-recent-list">
-                  {recentNotePaths.slice(0, 5).map(path => {
-                    const note = notes.find(n => n.relativePath === path);
-                    if (!note) return null;
-                    const folder = note.relativePath.split(/[/\\]/).slice(0, -1).join("/") || "—";
-                    return (
-                      <li key={path} className="nw-home-recent-item" onClick={() => handleNoteClick(note)}>
-                        <span className="nw-home-recent-folder">{folder}</span>
-                        <span className="nw-home-recent-title">{note.title}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-
-          </div>
+          <WelcomeScreen
+            wikiRoot={wikiRoot}
+            loading={loading}
+            error={error}
+            noteCount={notes.length}
+            nodeCount={wikiGraph ? wikiGraph.nodes.filter(n => n.exists).length : null}
+            edgeCount={wikiGraph ? wikiGraph.edges.filter(e => !e.isBroken).length : null}
+            orphanCount={wikiGraph ? wikiGraph.orphanNodes.length : null}
+            brokenLinkCount={wikiGraph ? wikiGraph.brokenLinks.length : null}
+            canExportNote={Boolean(selectedNote && !contentLoading && !contentError)}
+            onNewNote={openNewNoteModal}
+            onOpenGraph={() => setMainView("graph")}
+            onDailyNote={handleCreateDailyNote}
+            onQuickNote={handleCreateQuickNote}
+            onImport={openImportModal}
+            onExportWiki={openExportWikiModal}
+            onBackup={openBackupModal}
+            onOpenSettings={() => {
+              setWikiRootDraft(wikiRoot);
+              setWikiRootError(null);
+              setShowSettingsModal(true);
+            }}
+            onExportNote={openExportModal}
+          />
         )}
 
         <div className="nw-graph-header">

@@ -1,0 +1,193 @@
+.nw-welcome {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--nw-space-6);
+  min-height: 100%;
+  padding: var(--nw-space-8) var(--nw-space-4);
+  text-align: center;
+  overflow: hidden;
+}
+
+.nw-welcome-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 20% 20%, rgb(var(--nw-accent-rgb) / 0.08), transparent 45%),
+    radial-gradient(circle at 80% 75%, rgb(var(--nw-accent-rgb) / 0.06), transparent 50%);
+  z-index: 0;
+}
+
+.nw-welcome-identity,
+.nw-welcome-pulse,
+.nw-welcome-error-detail,
+.nw-welcome-entry,
+.nw-welcome-secondary,
+.nw-welcome-command-hint {
+  position: relative;
+  z-index: 1;
+}
+
+.nw-welcome-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--nw-space-2);
+}
+
+.nw-welcome-title {
+  margin: 0;
+  font-size: var(--nw-font-size-hero);
+  font-weight: 600;
+  color: var(--nw-text-primary);
+  letter-spacing: -0.02em;
+}
+
+.nw-welcome-subtitle {
+  margin: 0;
+  font-size: var(--nw-font-size-lg);
+  color: var(--nw-text-secondary);
+}
+
+.nw-welcome-vault-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--nw-space-2);
+  margin-top: var(--nw-space-3);
+  padding: var(--nw-space-2) var(--nw-space-4);
+  border: 1px solid var(--nw-border-subtle);
+  border-radius: var(--nw-radius-pill);
+  background: var(--nw-surface);
+  font-size: var(--nw-font-size-md);
+  color: var(--nw-text-primary);
+}
+
+.nw-welcome-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--nw-success);
+}
+
+.nw-welcome-dot--ok { background: var(--nw-success); }
+.nw-welcome-dot--loading { background: var(--nw-text-muted); }
+.nw-welcome-dot--warning { background: var(--nw-warning); }
+.nw-welcome-dot--error { background: var(--nw-error); }
+
+.nw-welcome-path {
+  margin: 0;
+  max-width: 760px;
+  font-family: var(--nw-font-mono);
+  font-size: var(--nw-font-size-xs);
+  color: var(--nw-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.nw-welcome-error-detail {
+  margin: 0;
+  max-width: 680px;
+  font-size: var(--nw-font-size-sm);
+  color: var(--nw-error);
+}
+
+.nw-welcome-pulse {
+  margin: 0;
+  font-size: var(--nw-font-size-md);
+  color: var(--nw-text-secondary);
+}
+
+.nw-welcome-entry {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--nw-space-3);
+}
+
+.nw-welcome-cta {
+  padding: var(--nw-space-3) var(--nw-space-6);
+  border-radius: var(--nw-radius-md);
+  font-size: var(--nw-font-size-md);
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--nw-border);
+  transition:
+    background var(--nw-motion-fast) var(--nw-ease-standard),
+    color var(--nw-motion-fast) var(--nw-ease-standard),
+    border-color var(--nw-motion-fast) var(--nw-ease-standard);
+}
+
+.nw-welcome-cta--primary {
+  background: var(--nw-accent);
+  color: var(--nw-accent-contrast);
+  border-color: transparent;
+}
+
+.nw-welcome-cta--secondary {
+  background: var(--nw-surface);
+  color: var(--nw-text-primary);
+}
+
+.nw-welcome-cta:hover {
+  border-color: var(--nw-border-strong);
+}
+
+.nw-welcome-secondary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--nw-space-2);
+  margin-top: var(--nw-space-2);
+}
+
+.nw-welcome-secondary-title {
+  margin: 0;
+  font-size: var(--nw-font-size-xs);
+  color: var(--nw-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.nw-welcome-secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--nw-space-2);
+  max-width: 720px;
+}
+
+.nw-welcome-secondary-action {
+  padding: var(--nw-space-2) var(--nw-space-3);
+  border: 1px solid var(--nw-border-subtle);
+  border-radius: var(--nw-radius-md);
+  background: transparent;
+  color: var(--nw-text-secondary);
+  font-size: var(--nw-font-size-sm);
+  cursor: pointer;
+  transition:
+    background var(--nw-motion-fast) var(--nw-ease-standard),
+    color var(--nw-motion-fast) var(--nw-ease-standard),
+    border-color var(--nw-motion-fast) var(--nw-ease-standard);
+}
+
+.nw-welcome-secondary-action:hover {
+  background: var(--nw-surface-subtle);
+  color: var(--nw-text-primary);
+  border-color: var(--nw-border);
+}
+
+.nw-welcome-command-hint {
+  margin: 0;
+  font-size: var(--nw-font-size-sm);
+  color: var(--nw-text-muted);
+}
+
+.nw-welcome-command-hint kbd {
+  font-family: var(--nw-font-mono);
+  padding: 1px 6px;
+  border: 1px solid var(--nw-border-subtle);
+  border-radius: var(--nw-radius-xs);
+  background: var(--nw-surface-subtle);
+}

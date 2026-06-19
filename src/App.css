@@ -1147,6 +1147,50 @@ button.nw-wikilink--missing:disabled {
   font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
 }
 
+.nw-home-health-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: var(--space-card-y) var(--space-card-x);
+}
+
+.nw-home-health-panel--warning {
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+.nw-home-health-headline {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.nw-home-health-panel--healthy .nw-home-health-headline { color: #86efac; }
+.nw-home-health-panel--warning .nw-home-health-headline { color: #f87171; }
+.nw-home-health-panel--pending .nw-home-health-headline { color: var(--text-dim); }
+
+.nw-home-health-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.nw-home-health-item--ok { color: var(--text-muted); }
+.nw-home-health-item--warning { color: #f87171; font-weight: 600; }
+.nw-home-health-item--notice { color: #fbbf24; }
+
+.nw-home-health-action {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
 .nw-home-stats {
   display: flex;
   gap: 10px;

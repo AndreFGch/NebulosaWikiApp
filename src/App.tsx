@@ -1690,6 +1690,28 @@ function App() {
     setCommandQuery("");
   }, []);
 
+  const wikiHealth = useMemo(() => {
+    if (!wikiGraph) {
+      return {
+        tone: "pending" as const,
+        headline: "Evaluando salud de la wiki…",
+        actionNote: null as string | null,
+        connections: 0,
+        brokenCount: 0,
+        orphanCount: 0,
+      };
+    }
+    const brokenCount = wikiGraph.brokenLinks.length;
+    const orphanCount = wikiGraph.orphanNodes.length;
+    const connections = wikiGraph.edges.filter((e) => !e.isBroken).length;
+    const tone = brokenCount > 0 ? ("warning" as const) : ("healthy" as const);
+    const headline = brokenCount > 0 ? "Wiki con enlaces rotos" : "Wiki saludable";
+    const actionNote = brokenCount > 0
+      ? `${brokenCount} enlace${brokenCount === 1 ? "" : "s"} roto${brokenCount === 1 ? "" : "s"} requiere${brokenCount === 1 ? "" : "n"} atención`
+      : "Sin acciones críticas";
+    return { tone, headline, actionNote, connections, brokenCount, orphanCount };
+  }, [wikiGraph]);
+
   const commands = useMemo(() => {
     const base: { id: string; label: string; hint: string; action: () => void }[] = [
       { id: "home",         label: "Ir a inicio",          hint: "Dashboard",                      action: () => setMainView("home") },
@@ -1980,6 +2002,30 @@ function App() {
               </div>
             )}
 
+            {!error && notes.length > 0 && (
+              <div className={`nw-home-health-panel nw-home-health-panel--${wikiHealth.tone}`}>
+                <div className="nw-home-health-headline">{wikiHealth.headline}</div>
+                {wikiHealth.tone !== "pending" ? (
+                  <>
+                    <ul className="nw-home-health-list">
+                      <li>
+                        {wikiHealth.connections} conexion{wikiHealth.connections === 1 ? "" : "es"} detectada{wikiHealth.connections === 1 ? "" : "s"}
+                      </li>
+                      <li className={wikiHealth.brokenCount > 0 ? "nw-home-health-item--warning" : "nw-home-health-item--ok"}>
+                        {wikiHealth.brokenCount} enlace{wikiHealth.brokenCount === 1 ? "" : "s"} roto{wikiHealth.brokenCount === 1 ? "" : "s"}
+                      </li>
+                      <li className={wikiHealth.orphanCount > 0 ? "nw-home-health-item--notice" : "nw-home-health-item--ok"}>
+                        {wikiHealth.orphanCount} nota{wikiHealth.orphanCount === 1 ? "" : "s"} huérfana{wikiHealth.orphanCount === 1 ? "" : "s"}
+                      </li>
+                    </ul>
+                    <p className="nw-home-health-action">{wikiHealth.actionNote}</p>
+                  </>
+                ) : (
+                  <p className="nw-home-health-action">Leyendo notas y calculando conexiones…</p>
+                )}
+              </div>
+            )}
+
             <div className="nw-home-stats">
               <div className="nw-home-stat">
                 <span className="nw-home-stat-value">{loading ? "—" : notes.length}</span>
@@ -2098,6 +2144,7 @@ function App() {
             </>
           )}
         </div>
+        {graphLoading && <p className="nw-graph-status">Actualizando grafo…</p>}
         {graphError && <p className="nw-graph-status nw-graph-status--error">Error: {graphError}</p>}
         <div className="nw-graph-canvas-wrapper">
           <div ref={graphContainerRef} className="nw-graph-container" />

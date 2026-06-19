@@ -996,13 +996,26 @@ button.nw-wikilink--missing:disabled {
 .nw-home-hero {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+}
+
+.nw-home-hero-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.nw-home-hero-titles {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
 }
 
 .nw-home-title {
-  font-size: 1.9rem;
+  font-size: 2.1rem;
   font-weight: 700;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.6px;
   color: var(--text);
   line-height: 1.15;
 }
@@ -1011,6 +1024,61 @@ button.nw-wikilink--missing:disabled {
   font-size: 0.9rem;
   color: var(--text-muted);
   line-height: 1.5;
+}
+
+.nw-home-health {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  background: var(--badge-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  white-space: nowrap;
+  margin-top: 4px;
+}
+
+.nw-home-health-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+
+.nw-home-health--ok {
+  color: #86efac;
+  border-color: rgba(134, 239, 172, 0.3);
+}
+.nw-home-health--ok .nw-home-health-dot { background: #86efac; }
+
+.nw-home-health--error {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.3);
+}
+.nw-home-health--error .nw-home-health-dot { background: #f87171; }
+
+.nw-home-vault {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nw-home-vault-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.nw-home-vault-path {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
 }
 
 .nw-home-stats {
@@ -1024,15 +1092,20 @@ button.nw-wikilink--missing:disabled {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  background: var(--badge-bg);
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px 22px;
-  min-width: 68px;
+  border-radius: 12px;
+  padding: 16px 24px;
+  min-width: 72px;
+  transition: border-color 0.15s;
+}
+
+.nw-home-stat:hover {
+  border-color: rgba(124, 106, 247, 0.3);
 }
 
 .nw-home-stat-value {
-  font-size: 1.35rem;
+  font-size: 1.4rem;
   font-weight: 700;
   color: var(--text);
   font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
@@ -1044,6 +1117,12 @@ button.nw-wikilink--missing:disabled {
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.nw-home-actions-main {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .nw-home-actions {
@@ -1061,7 +1140,7 @@ button.nw-wikilink--missing:disabled {
   background: var(--badge-bg);
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  transition: background 0.12s, color 0.12s, border-color 0.12s, transform 0.12s;
   white-space: nowrap;
 }
 
@@ -1071,16 +1150,35 @@ button.nw-wikilink--missing:disabled {
   border-color: var(--accent-dim);
 }
 
+.nw-home-actions-main .nw-home-action {
+  padding: 10px 20px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  border-radius: 9px;
+}
+
 .nw-home-action--primary {
-  background: rgba(124, 106, 247, 0.1);
-  border-color: rgba(124, 106, 247, 0.38);
+  background: rgba(124, 106, 247, 0.14);
+  border-color: rgba(124, 106, 247, 0.4);
   color: #c4b5fd;
 }
 
 .nw-home-action--primary:hover:not(:disabled) {
-  background: rgba(124, 106, 247, 0.2);
+  background: rgba(124, 106, 247, 0.24);
   border-color: var(--accent);
   color: #ddd6ff;
+  transform: translateY(-1px);
+}
+
+.nw-home-action--secondary {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.nw-home-action--secondary:hover:not(:disabled) {
+  border-color: var(--accent-dim);
+  transform: translateY(-1px);
 }
 
 .nw-home-action:disabled {
@@ -2160,6 +2258,17 @@ button.nw-wikilink--missing:disabled {
     font-size: 0.82rem;
   }
 
+  .nw-home-hero-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .nw-home-actions-main {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
   .nw-home-stats {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2298,14 +2407,6 @@ button.nw-wikilink--missing:disabled {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
-}
-
-.nw-home-path {
-  font-size: 0.72rem;
-  color: var(--text-dim);
-  font-family: monospace;
-  margin: 2px 0 0;
-  line-height: 1.4;
 }
 
 .nw-settings-section {

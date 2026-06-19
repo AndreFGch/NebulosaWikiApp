@@ -1881,9 +1881,22 @@ function App() {
         {mainView === "home" && (
           <div className="nw-home">
             <div className="nw-home-hero">
-              <h1 className="nw-home-title">Nebulosa Wiki</h1>
-              <p className="nw-home-subtitle">Wiki Markdown local-first para conocimiento conectado.</p>
-              {wikiRoot && <p className="nw-home-path">Wiki: {wikiRoot}</p>}
+              <div className="nw-home-hero-top">
+                <div className="nw-home-hero-titles">
+                  <h1 className="nw-home-title">Nebulosa Wiki</h1>
+                  <p className="nw-home-subtitle">Wiki Markdown local-first para conocimiento conectado.</p>
+                </div>
+                <span className={`nw-home-health${error ? " nw-home-health--error" : !loading ? " nw-home-health--ok" : ""}`}>
+                  <span className="nw-home-health-dot" />
+                  {loading ? "Cargando" : error ? "Error" : "Vault OK"}
+                </span>
+              </div>
+              {wikiRoot && (
+                <div className="nw-home-vault">
+                  <span className="nw-home-vault-name">{wikiRoot.split(/[/\\]/).filter(Boolean).pop()}</span>
+                  <span className="nw-home-vault-path">{wikiRoot}</span>
+                </div>
+              )}
             </div>
 
             {!loading && error && (
@@ -1934,11 +1947,13 @@ function App() {
               </div>
             </div>
 
+            <div className="nw-home-actions-main">
+              <button className="nw-home-action nw-home-action--primary" onClick={openNewNoteModal}>+ Nueva nota</button>
+              <button className="nw-home-action nw-home-action--secondary" onClick={() => setMainView("graph")}>◎ Explorar grafo</button>
+              <button className="nw-home-action nw-home-action--secondary" onClick={() => { setIsCommandPaletteOpen(true); setCommandQuery(""); }}>⌕ Buscar</button>
+            </div>
+
             <div className="nw-home-actions">
-              <button className="nw-home-action nw-home-action--primary" onClick={() => setMainView("graph")}>
-                ◎ Abrir grafo
-              </button>
-              <button className="nw-home-action" onClick={openNewNoteModal}>+ Nueva nota</button>
               <button className="nw-home-action" onClick={handleCreateDailyNote}>◷ Nota diaria</button>
               <button className="nw-home-action" onClick={handleCreateQuickNote}>✦ Nota rápida</button>
               <button className="nw-home-action" onClick={openImportModal}>⇣ Importar</button>

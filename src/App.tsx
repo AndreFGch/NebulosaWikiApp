@@ -1721,7 +1721,12 @@ function App() {
   const hasUnsavedChanges = detailMode === "edit" && editContent !== noteContent;
 
   return (
-    <div className={`nw-shell${!isSidebarOpen ? " nw-shell--sidebar-collapsed" : ""}${!isDetailOpen ? " nw-shell--detail-collapsed" : ""}`}>
+    <div
+      className={`nw-shell${!isSidebarOpen ? " nw-shell--sidebar-collapsed" : ""}${!isDetailOpen ? " nw-shell--detail-collapsed" : ""}`}
+      data-theme="dark"
+      data-accent="violet"
+      data-density="comfortable"
+    >
       <nav className="nw-ribbon">
         <button
           className={`nw-ribbon-btn${mainView === "home" ? " nw-ribbon-btn--active" : ""}`}

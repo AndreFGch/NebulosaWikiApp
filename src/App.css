@@ -22,6 +22,72 @@
   --code-text: #c9d1ff;
   --ok: #4ade80;
   --error: #f87171;
+
+  /* ── Densidad: comfortable (default) ───────────────────────── */
+  --space-action-y: 8px;
+  --space-action-x: 16px;
+  --space-action-main-y: 10px;
+  --space-action-main-x: 20px;
+  --space-card-y: 14px;
+  --space-card-x: 22px;
+  --space-stack: 24px;
+  --radius-action: 7px;
+  --radius-card: 12px;
+}
+
+/* ── Tema claro ───────────────────────────────────────────────
+   Activado vía [data-theme="light"] en .nw-shell. No usado por
+   defecto todavía; base lista para UI-03/UI-04. */
+[data-theme="light"] {
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --surface-hover: #ececf3;
+  --border: #dcdce4;
+  --text: #1c1d24;
+  --text-muted: #5a5d6e;
+  --text-dim: #8b8e9e;
+  --badge-bg: #eeeef4;
+  --code-bg: #ececf3;
+  --code-text: #3a3a5a;
+  --ok: #15803d;
+  --error: #b91c1c;
+}
+
+/* ── Acentos ──────────────────────────────────────────────────
+   "violet" replica el acento actual; el resto queda listo para
+   UI-03/UI-04 conectar un selector real. */
+[data-accent="violet"] {
+  --accent: #7c6af7;
+  --accent-dim: #4e4499;
+}
+
+[data-accent="amber"] {
+  --accent: #f5a623;
+  --accent-dim: #8a611a;
+}
+
+[data-accent="sage"] {
+  --accent: #7fae8e;
+  --accent-dim: #44614c;
+}
+
+[data-accent="terracotta"] {
+  --accent: #e0775f;
+  --accent-dim: #7e4536;
+}
+
+/* ── Densidad: compact ────────────────────────────────────────
+   Reduce spacing de botones/cards sin tocar layout ni clases. */
+[data-density="compact"] {
+  --space-action-y: 5px;
+  --space-action-x: 12px;
+  --space-action-main-y: 7px;
+  --space-action-main-x: 15px;
+  --space-card-y: 9px;
+  --space-card-x: 16px;
+  --space-stack: 16px;
+  --radius-action: 6px;
+  --radius-card: 9px;
 }
 
 *,
@@ -983,7 +1049,7 @@ button.nw-wikilink--missing:disabled {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
+  gap: var(--space-stack);
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -1094,8 +1160,8 @@ button.nw-wikilink--missing:disabled {
   gap: 4px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px 24px;
+  border-radius: var(--radius-card);
+  padding: var(--space-card-y) var(--space-card-x);
   min-width: 72px;
   transition: border-color 0.15s;
 }
@@ -1134,8 +1200,8 @@ button.nw-wikilink--missing:disabled {
 .nw-home-action {
   font-size: 0.82rem;
   font-family: inherit;
-  padding: 8px 16px;
-  border-radius: 7px;
+  padding: var(--space-action-y) var(--space-action-x);
+  border-radius: var(--radius-action);
   border: 1px solid var(--border);
   background: var(--badge-bg);
   color: var(--text-muted);
@@ -1151,10 +1217,10 @@ button.nw-wikilink--missing:disabled {
 }
 
 .nw-home-actions-main .nw-home-action {
-  padding: 10px 20px;
+  padding: var(--space-action-main-y) var(--space-action-main-x);
   font-size: 0.86rem;
   font-weight: 600;
-  border-radius: 9px;
+  border-radius: var(--radius-card);
 }
 
 .nw-home-action--primary {

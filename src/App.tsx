@@ -655,6 +655,11 @@ function App() {
   const [graphLoading, setGraphLoading] = useState(false);
   const [graphError, setGraphError] = useState<string | null>(null);
   const [graphReady, setGraphReady] = useState(false);
+  const [graphRefreshToken, setGraphRefreshToken] = useState(0);
+  const requestGraphRefresh = useCallback(() => {
+    setGraphRefreshToken((v) => v + 1);
+  }, []);
+  const graphBuildBusyRef = useRef(false);
 
   const [visibleGraphTypes, setVisibleGraphTypes] = useState<string[]>(ALL_GRAPH_TYPES);
   const [graphViewMode, setGraphViewMode] = useState<"global" | "local">("global");
@@ -739,9 +744,17 @@ function App() {
   const cyRef = useRef<cytoscape.Core | null>(null);
   const rafRef = useRef<number | null>(null);
   const selectedNoteRef = useRef<MarkdownFile | null>(null);
+  const notesRef = useRef<MarkdownFile[]>([]);
   const rootIdRef = useRef<string | null>(null);
   const velocitiesRef = useRef<Map<string, { vx: number; vy: number }>>(new Map());
   const alphaRef = useRef<number>(1.0);
+  const graphPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  const graphViewportRef = useRef<{ zoom: number; pan: { x: number; y: number } } | null>(null);
+  const hasInitializedGraphRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
 
   useEffect(() => {
     invoke<MarkdownFile[]>("list_markdown_files")
@@ -807,7 +820,7 @@ function App() {
       setDetailMode("preview");
       const files = await invoke<MarkdownFile[]>("list_markdown_files");
       setNotes(files);
-      setGraphReady(false);
+      requestGraphRefresh();
       showToast("success", "Cambios guardados");
     } catch (err) {
       setEditError(String(err));
@@ -815,7 +828,7 @@ function App() {
     } finally {
       setEditSaving(false);
     }
-  }, [selectedNote, editContent, showToast]);
+  }, [selectedNote, editContent, showToast, requestGraphRefresh]);
 
   const handleReloadWiki = useCallback(async () => {
     if (detailMode === "edit" && editContent !== noteContent) {
@@ -824,7 +837,7 @@ function App() {
     try {
       const files = await invoke<MarkdownFile[]>("list_markdown_files");
       setNotes(files);
-      setGraphReady(false);
+      requestGraphRefresh();
       if (selectedNote) {
         const updated = files.find(f => f.relativePath === selectedNote.relativePath);
         if (!updated) {
@@ -843,7 +856,7 @@ function App() {
     } catch (err) {
       showToast("error", `No se pudo recargar: ${String(err)}`);
     }
-  }, [detailMode, editContent, noteContent, selectedNote, showToast]);
+  }, [detailMode, editContent, noteContent, selectedNote, showToast, requestGraphRefresh]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -891,7 +904,7 @@ function App() {
         setEditContent(content);
         setEditError(null);
       }
-      setGraphReady(false);
+      requestGraphRefresh();
       setShowNewNoteModal(false);
       setNewNoteTemplate("simple");
       setNewNoteTitle("");
@@ -902,7 +915,7 @@ function App() {
     } finally {
       setNewNoteCreating(false);
     }
-  }, [newNoteTitle, newNoteFolder, newNoteTemplate, showToast]);
+  }, [newNoteTitle, newNoteFolder, newNoteTemplate, showToast, requestGraphRefresh]);
 
   const handleCreateMissingNote = useCallback(async (label: string) => {
     const slug = slugify(label);
@@ -927,14 +940,14 @@ function App() {
         setEditContent(content);
         setEditError(null);
       }
-      setGraphReady(false);
+      requestGraphRefresh();
       showToast("success", "Nota creada desde enlace roto");
     } catch (err) {
       setRelationActionError(String(err));
     } finally {
       setCreatingMissingLink(null);
     }
-  }, [showToast]);
+  }, [showToast, requestGraphRefresh]);
 
   const handleCreateDailyNote = useCallback(async () => {
     const now = new Date();
@@ -957,7 +970,7 @@ function App() {
         setEditContent(content);
         setEditError(null);
       }
-      setGraphReady(false);
+      requestGraphRefresh();
       showToast("success", "Nota diaria creada");
     } catch {
       const files = await invoke<MarkdownFile[]>("list_markdown_files");
@@ -967,11 +980,11 @@ function App() {
         setSelectedNote(existing);
         setIsDetailOpen(true);
         setDetailMode("edit");
-        setGraphReady(false);
+        requestGraphRefresh();
         showToast("info", "Nota diaria abierta");
       }
     }
-  }, [showToast]);
+  }, [showToast, requestGraphRefresh]);
 
   const handleCreateQuickNote = useCallback(async () => {
     const now = new Date();
@@ -1004,9 +1017,9 @@ function App() {
       setEditContent(content);
       setEditError(null);
     }
-    setGraphReady(false);
+    requestGraphRefresh();
     showToast("success", "Nota rápida creada");
-  }, [showToast]);
+  }, [showToast, requestGraphRefresh]);
 
   const openImportModal = useCallback(() => {
     setImportSourcePath("");
@@ -1029,7 +1042,7 @@ function App() {
       setNotes(files);
       const imported = files.find(f => f.relativePath === relativePath);
       if (imported) handleNoteClick(imported);
-      setGraphReady(false);
+      requestGraphRefresh();
       setShowImportModal(false);
       setImportSourcePath("");
       setImportTargetFolder("notes");
@@ -1040,7 +1053,7 @@ function App() {
     } finally {
       setImportImporting(false);
     }
-  }, [importSourcePath, importTargetFolder, handleNoteClick, showToast]);
+  }, [importSourcePath, importTargetFolder, handleNoteClick, showToast, requestGraphRefresh]);
 
   const handleContentSearch = useCallback(async () => {
     const q = searchQuery.trim();
@@ -1131,7 +1144,7 @@ function App() {
       setSelectedNote(null);
       setNoteContent("");
       setEditContent("");
-      setGraphReady(false);
+      requestGraphRefresh();
       const files = await invoke<MarkdownFile[]>("list_markdown_files");
       setNotes(files);
       showToast("success", "Ruta de wiki actualizada");
@@ -1141,7 +1154,7 @@ function App() {
     } finally {
       setWikiRootSaving(false);
     }
-  }, [wikiRootDraft, showToast]);
+  }, [wikiRootDraft, showToast, requestGraphRefresh]);
 
   const handleBrowseWikiRoot = useCallback(async () => {
     const result = await openDialog({ directory: true, multiple: false });
@@ -1215,7 +1228,7 @@ function App() {
       setNoteContent("");
       setDetailMode("preview");
       setIsDetailOpen(false);
-      setGraphReady(false);
+      requestGraphRefresh();
       setShowDeleteModal(false);
       setDeleteConfirmText("");
       showToast("success", "Nota eliminada");
@@ -1225,7 +1238,7 @@ function App() {
     } finally {
       setDeleteDeleting(false);
     }
-  }, [selectedNote, deleteConfirmText, showToast]);
+  }, [selectedNote, deleteConfirmText, showToast, requestGraphRefresh]);
 
   const centerGraph = useCallback((cy: cytoscape.Core, _rid: string | null) => {
     cy.fit(cy.elements(), 140);
@@ -1235,8 +1248,9 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (graphReady || graphLoading || notes.length === 0) return;
+    if (notes.length === 0 || graphBuildBusyRef.current) return;
 
+    graphBuildBusyRef.current = true;
     setGraphLoading(true);
     setGraphError(null);
 
@@ -1252,16 +1266,19 @@ function App() {
       setWikiGraph(graph);
       setGraphReady(true);
       setGraphLoading(false);
+      graphBuildBusyRef.current = false;
     }).catch((err) => {
       setGraphError(String(err));
       setGraphLoading(false);
+      graphBuildBusyRef.current = false;
     });
-  }, [notes, graphReady, graphLoading]);
+  }, [notes, graphRefreshToken]);
 
   useEffect(() => {
     if (!graphReady || !wikiGraph || !graphContainerRef.current) return;
 
-    cyRef.current?.destroy();
+    const isFirstBuild = !hasInitializedGraphRef.current;
+    const savedPositions = graphPositionsRef.current;
 
     // Global graph hides index edges to avoid hub collapse.
     const indexNodeIds = new Set(
@@ -1277,6 +1294,12 @@ function App() {
       (e) => !indexNodeIds.has(e.source) && !indexNodeIds.has(e.target)
     );
     const positionMap = buildRadialPositions(wikiGraph.nodes, filteredEdges, rootId);
+    if (!isFirstBuild) {
+      for (const node of wikiGraph.nodes) {
+        const saved = savedPositions.get(node.id);
+        if (saved) positionMap.set(node.id, saved);
+      }
+    }
 
     const elements: cytoscape.ElementDefinition[] = [
       ...wikiGraph.nodes.map((n) => ({
@@ -1316,7 +1339,7 @@ function App() {
     const layoutRun = cy.layout({
       name: "preset",
       positions: (node: any) => positionMap.get(node.id()) ?? { x: 0, y: 0 },
-      fit: true,
+      fit: isFirstBuild,
       padding: 70,
     } as unknown as cytoscape.LayoutOptions);
 
@@ -1327,9 +1350,15 @@ function App() {
       }
       rootIdRef.current = rootId;
 
-      cy.fit(cy.elements(), 140);
-      clampZoom(cy);
-      cy.center(cy.elements());
+      if (isFirstBuild || !graphViewportRef.current) {
+        cy.fit(cy.elements(), 140);
+        clampZoom(cy);
+        cy.center(cy.elements());
+      } else {
+        cy.zoom(graphViewportRef.current.zoom);
+        cy.pan(graphViewportRef.current.pan);
+      }
+      hasInitializedGraphRef.current = true;
 
       // Build stable node/edge arrays for physics (graph is static after init)
       const nodeArr: cytoscape.NodeSingular[] = [];
@@ -1344,9 +1373,24 @@ function App() {
         if (si !== undefined && ti !== undefined) edgeLinks.push({ si, ti });
       });
 
-      velocitiesRef.current.clear();
-      nodeArr.forEach((n) => { velocitiesRef.current.set(n.id(), { vx: 0, vy: 0 }); });
-      alphaRef.current = 1.0;
+      if (isFirstBuild) {
+        velocitiesRef.current.clear();
+        nodeArr.forEach((n) => { velocitiesRef.current.set(n.id(), { vx: 0, vy: 0 }); });
+        alphaRef.current = 1.0;
+      } else {
+        const currentIds = new Set(nodeArr.map((n) => n.id()));
+        for (const id of Array.from(velocitiesRef.current.keys())) {
+          if (!currentIds.has(id)) velocitiesRef.current.delete(id);
+        }
+        let hasNewNodes = false;
+        nodeArr.forEach((n) => {
+          if (!velocitiesRef.current.has(n.id())) {
+            velocitiesRef.current.set(n.id(), { vx: 0, vy: 0 });
+            hasNewNodes = true;
+          }
+        });
+        alphaRef.current = hasNewNodes ? 0.3 : 0.05;
+      }
 
       const simulate = () => {
         rafRef.current = requestAnimationFrame(simulate);
@@ -1502,7 +1546,7 @@ function App() {
     cy.on("tap", "node", (evt) => {
       if (!evt.target.data("exists")) return;
       const relPath: string = evt.target.data("relativePath");
-      const note = notes.find((n) => n.relativePath === relPath);
+      const note = notesRef.current.find((n) => n.relativePath === relPath);
       if (note) handleNoteClickRef.current(note);
     });
 
@@ -1516,10 +1560,17 @@ function App() {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
+
+      // Capturar posiciones y viewport ANTES de destruir, mientras cy aún vive.
+      const posMap = new Map<string, { x: number; y: number }>();
+      cy.nodes().forEach((n) => { posMap.set(n.id(), n.position()); });
+      graphPositionsRef.current = posMap;
+      graphViewportRef.current = { zoom: cy.zoom(), pan: cy.pan() };
+
       cy.destroy();
       cyRef.current = null;
     };
-  }, [graphReady, wikiGraph, notes]);
+  }, [graphReady, wikiGraph]);
 
   useEffect(() => {
     selectedNoteRef.current = selectedNote;
@@ -2047,7 +2098,6 @@ function App() {
             </>
           )}
         </div>
-        {graphLoading && <p className="nw-graph-status">Construyendo grafo...</p>}
         {graphError && <p className="nw-graph-status nw-graph-status--error">Error: {graphError}</p>}
         <div className="nw-graph-canvas-wrapper">
           <div ref={graphContainerRef} className="nw-graph-container" />

@@ -14,12 +14,14 @@ import {
   FOLDER_COLORS,
   GRAPH_STYLE,
   buildGraphElements,
-  clampZoom,
   centerGraph,
   bindGraphEvents,
   reconcileVelocities,
   createGraphSimulation,
   captureGraphState,
+  mergeSavedNodePositions,
+  applyInitialGraphViewport,
+  restoreGraphViewport,
   type WikiNode,
   type WikiGraph,
 } from "./features/wiki-graph";
@@ -779,12 +781,9 @@ function App() {
       rootIdRef.current = rootId;
 
       if (isFirstBuild || !graphViewportRef.current) {
-        cy.fit(cy.elements(), 140);
-        clampZoom(cy);
-        cy.center(cy.elements());
+        applyInitialGraphViewport(cy);
       } else {
-        cy.zoom(graphViewportRef.current.zoom);
-        cy.pan(graphViewportRef.current.pan);
+        restoreGraphViewport(cy, graphViewportRef.current);
       }
       hasInitializedGraphRef.current = true;
 
@@ -823,10 +822,7 @@ function App() {
       runCoseLayout(cy, handleLayoutStop);
     } else {
       const positionMap = buildRadialPositions(wikiGraph.nodes, filteredEdges, rootId);
-      for (const node of wikiGraph.nodes) {
-        const saved = savedPositions.get(node.id);
-        if (saved) positionMap.set(node.id, saved);
-      }
+      mergeSavedNodePositions(positionMap, savedPositions, wikiGraph.nodes.map((node) => node.id));
 
       const layoutRun = cy.layout({
         name: "preset",

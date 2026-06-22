@@ -11,6 +11,7 @@ export { clampZoom, centerGraph } from "./cytoscape/centerGraph";
 export { bindGraphEvents } from "./cytoscape/bindGraphEvents";
 export { captureGraphState } from "./cytoscape/captureGraphState";
 export type { CapturedGraphState } from "./cytoscape/captureGraphState";
+export { mergeSavedNodePositions, applyInitialGraphViewport, restoreGraphViewport } from "./cytoscape/restoreGraphState";
 export { reconcileVelocities } from "./physics/reconcileVelocities";
 export { createGraphSimulation } from "./physics/createGraphSimulation";
 export type { Velocity, ReconcileVelocitiesResult, EdgeLink, GraphSimulationHandle } from "./physics/simulationTypes";

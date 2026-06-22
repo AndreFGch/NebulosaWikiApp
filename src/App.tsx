@@ -3,25 +3,15 @@ import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import cytoscape from "cytoscape";
+import type cytoscape from "cytoscape";
 import "./App.css";
 import {
   buildWikiGraph,
   sanitizeId,
   getGraphHealth,
-  buildRadialPositions,
-  runCoseLayout,
   FOLDER_COLORS,
-  GRAPH_STYLE,
-  buildGraphElements,
   centerGraph,
-  bindGraphEvents,
-  reconcileVelocities,
-  createGraphSimulation,
-  captureGraphState,
-  mergeSavedNodePositions,
-  applyInitialGraphViewport,
-  restoreGraphViewport,
+  useWikiGraphLifecycle,
   type WikiNode,
   type WikiGraph,
 } from "./features/wiki-graph";
@@ -753,117 +743,23 @@ function App() {
     });
   }, [notes, graphRefreshToken]);
 
-  useEffect(() => {
-    if (!graphReady || !wikiGraph || !graphContainerRef.current) return;
-
-    const isFirstBuild = !hasInitializedGraphRef.current;
-    const savedPositions = graphPositionsRef.current;
-
-    const { elements, rootId, filteredEdges } = buildGraphElements(wikiGraph);
-
-    const cy = cytoscape({
-      container: graphContainerRef.current,
-      elements,
-      style: GRAPH_STYLE,
-      userPanningEnabled: true,
-      userZoomingEnabled: true,
-      boxSelectionEnabled: false,
-      minZoom: 0.45,
-      maxZoom: 1.7,
-      wheelSensitivity: 0.18,
-    });
-
-    const handleLayoutStop = () => {
-      if (rootId) {
-        const rootEl = cy.nodes(`#${rootId}`);
-        if (!rootEl.empty()) rootEl.addClass("nw-root");
-      }
-      rootIdRef.current = rootId;
-
-      if (isFirstBuild || !graphViewportRef.current) {
-        applyInitialGraphViewport(cy);
-      } else {
-        restoreGraphViewport(cy, graphViewportRef.current);
-      }
-      hasInitializedGraphRef.current = true;
-
-      // Build stable node/edge arrays for physics (graph is static after init)
-      const nodeArr: cytoscape.NodeSingular[] = [];
-      cy.nodes().forEach((n) => { nodeArr.push(n); });
-      const nodeIdx = new Map<string, number>();
-      nodeArr.forEach((n, i) => { nodeIdx.set(n.id(), i); });
-
-      const edgeLinks: Array<{ si: number; ti: number }> = [];
-      cy.edges().forEach((edge) => {
-        const si = nodeIdx.get(edge.source().id());
-        const ti = nodeIdx.get(edge.target().id());
-        if (si !== undefined && ti !== undefined) edgeLinks.push({ si, ti });
-      });
-
-      const reconcileResult = reconcileVelocities(
-        velocitiesRef.current,
-        nodeArr.map((n) => n.id()),
-        isFirstBuild
-      );
-      alphaRef.current = reconcileResult.alpha;
-
-      const simulation = createGraphSimulation({
-        cy,
-        nodeArr,
-        edgeLinks,
-        velocities: velocitiesRef.current,
-        alphaRef,
-        rafRef,
-      });
-      simulation.start();
-    };
-
-    if (isFirstBuild) {
-      runCoseLayout(cy, handleLayoutStop);
-    } else {
-      const positionMap = buildRadialPositions(wikiGraph.nodes, filteredEdges, rootId);
-      mergeSavedNodePositions(positionMap, savedPositions, wikiGraph.nodes.map((node) => node.id));
-
-      const layoutRun = cy.layout({
-        name: "preset",
-        positions: (node: any) => positionMap.get(node.id()) ?? { x: 0, y: 0 },
-        fit: false,
-        padding: 70,
-      } as unknown as cytoscape.LayoutOptions);
-
-      layoutRun.on("layoutstop", handleLayoutStop);
-      layoutRun.run();
-    }
-
-    cy.on("free", "node", (evt) => {
-      velocitiesRef.current.set(evt.target.id(), { vx: 0, vy: 0 });
-      alphaRef.current = Math.max(alphaRef.current, 0.8);
-    });
-
-    bindGraphEvents(cy, {
-      notesRef,
-      selectedNoteRef,
-      alphaRef,
-      onNodeClick: (note) => handleNoteClickRef.current(note),
-      onBackgroundClick: () => setSelectedNote(null),
-    });
-
-    cyRef.current = cy;
-    return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
-
-      // Capturar posiciones y viewport ANTES de destruir, mientras cy aún vive.
-      const captured = captureGraphState(cy);
-      graphPositionsRef.current = captured.positions;
-      graphViewportRef.current = captured.viewport;
-
-      cy.destroy();
-      cyRef.current = null;
-    };
-  }, [graphReady, wikiGraph]);
+  useWikiGraphLifecycle({
+    graphReady,
+    wikiGraph,
+    graphContainerRef,
+    cyRef,
+    graphPositionsRef,
+    graphViewportRef,
+    hasInitializedGraphRef,
+    velocitiesRef,
+    alphaRef,
+    rafRef,
+    rootIdRef,
+    notesRef,
+    selectedNoteRef,
+    onNodeClick: (note) => handleNoteClickRef.current(note),
+    onBackgroundClick: () => setSelectedNote(null),
+  });
 
   useEffect(() => {
     selectedNoteRef.current = selectedNote;

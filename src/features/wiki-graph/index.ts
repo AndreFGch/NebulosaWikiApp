@@ -8,4 +8,5 @@ export { buildGraphElements } from "./cytoscape/buildGraphElements";
 export { clampZoom, centerGraph } from "./cytoscape/centerGraph";
 export { bindGraphEvents } from "./cytoscape/bindGraphEvents";
 export { reconcileVelocities } from "./physics/reconcileVelocities";
-export type { Velocity, ReconcileVelocitiesResult } from "./physics/simulationTypes";
+export { createGraphSimulation } from "./physics/createGraphSimulation";
+export type { Velocity, ReconcileVelocitiesResult, EdgeLink, GraphSimulationHandle } from "./physics/simulationTypes";

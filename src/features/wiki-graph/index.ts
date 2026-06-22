@@ -16,3 +16,4 @@ export { reconcileVelocities } from "./physics/reconcileVelocities";
 export { createGraphSimulation } from "./physics/createGraphSimulation";
 export type { Velocity, ReconcileVelocitiesResult, EdgeLink, GraphSimulationHandle } from "./physics/simulationTypes";
 export { useWikiGraphLifecycle } from "./hooks/useWikiGraphLifecycle";
+export { WikiGraphPanel } from "./components/WikiGraphPanel";

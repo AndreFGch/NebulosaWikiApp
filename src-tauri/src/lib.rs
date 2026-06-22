@@ -1,9 +1,65 @@
 use serde::{Serialize, Deserialize};
 use std::path::Path;
 
+#[derive(Serialize, Deserialize, Clone)]
+struct UiPreferences {
+    theme: String,
+    accent: String,
+    density: String,
+}
+
+impl Default for UiPreferences {
+    fn default() -> Self {
+        UiPreferences {
+            theme: "dark".to_string(),
+            accent: "violet".to_string(),
+            density: "comfortable".to_string(),
+        }
+    }
+}
+
+const VALID_THEMES: [&str; 2] = ["dark", "light"];
+const VALID_ACCENTS: [&str; 4] = ["violet", "amber", "sage", "terracotta"];
+const VALID_DENSITIES: [&str; 2] = ["comfortable", "compact"];
+
+impl UiPreferences {
+    fn validate(&self) -> Result<(), String> {
+        if !VALID_THEMES.contains(&self.theme.as_str()) {
+            return Err(format!("Tema inválido: {}", self.theme));
+        }
+        if !VALID_ACCENTS.contains(&self.accent.as_str()) {
+            return Err(format!("Acento inválido: {}", self.accent));
+        }
+        if !VALID_DENSITIES.contains(&self.density.as_str()) {
+            return Err(format!("Densidad inválida: {}", self.density));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct WikiConfig {
     wiki_root: String,
+    #[serde(default)]
+    ui_preferences: UiPreferences,
+}
+
+/// Lee settings.json completo si existe; None si no existe o está corrupto.
+/// Usado para preservar el campo que cada comando no está escribiendo.
+fn read_existing_config(app: &tauri::AppHandle) -> Result<Option<WikiConfig>, String> {
+    let config_path = config_file_path(app)?;
+    if !config_path.exists() {
+        return Ok(None);
+    }
+    let text = std::fs::read_to_string(&config_path)
+        .map_err(|e| format!("Error al leer configuración: {}", e))?;
+    Ok(serde_json::from_str(&text).ok())
+}
+
+fn get_configured_ui_preferences(app: &tauri::AppHandle) -> Result<UiPreferences, String> {
+    Ok(read_existing_config(app)?
+        .map(|cfg| cfg.ui_preferences)
+        .unwrap_or_default())
 }
 
 fn portable_data_dir() -> Result<std::path::PathBuf, String> {
@@ -51,7 +107,7 @@ fn get_configured_wiki_root(app: &tauri::AppHandle) -> Result<std::path::PathBuf
         .map_err(|e| format!("Error al leer configuración: {}", e))?;
     let fallback = default_wiki().to_string_lossy().to_string();
     let cfg: WikiConfig = serde_json::from_str(&text)
-        .unwrap_or(WikiConfig { wiki_root: fallback });
+        .unwrap_or(WikiConfig { wiki_root: fallback, ui_preferences: UiPreferences::default() });
     Ok(std::path::PathBuf::from(cfg.wiki_root))
 }
 
@@ -819,14 +875,48 @@ fn set_wiki_root(app_handle: tauri::AppHandle, path: String) -> Result<String, S
         .canonicalize()
         .map_err(|e| format!("Error al resolver la ruta: {}", e))?;
 
+    let existing_prefs = read_existing_config(&app_handle)?
+        .map(|cfg| cfg.ui_preferences)
+        .unwrap_or_default();
+
     let config_path = config_file_path(&app_handle)?;
-    let cfg = WikiConfig { wiki_root: canonical.to_string_lossy().into_owned() };
+    let cfg = WikiConfig {
+        wiki_root: canonical.to_string_lossy().into_owned(),
+        ui_preferences: existing_prefs,
+    };
     let text = serde_json::to_string_pretty(&cfg)
         .map_err(|e| format!("Error al serializar configuración: {}", e))?;
     std::fs::write(&config_path, text.as_bytes())
         .map_err(|e| format!("Error al guardar configuración: {}", e))?;
 
     Ok(canonical.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+fn get_ui_preferences(app_handle: tauri::AppHandle) -> Result<UiPreferences, String> {
+    get_configured_ui_preferences(&app_handle)
+}
+
+#[tauri::command]
+fn set_ui_preferences(app_handle: tauri::AppHandle, preferences: UiPreferences) -> Result<UiPreferences, String> {
+    preferences.validate()?;
+
+    let wiki_root = match read_existing_config(&app_handle)? {
+        Some(cfg) => cfg.wiki_root,
+        None => get_configured_wiki_root(&app_handle)?.to_string_lossy().into_owned(),
+    };
+
+    let config_path = config_file_path(&app_handle)?;
+    let cfg = WikiConfig {
+        wiki_root,
+        ui_preferences: preferences.clone(),
+    };
+    let text = serde_json::to_string_pretty(&cfg)
+        .map_err(|e| format!("Error al serializar configuración: {}", e))?;
+    std::fs::write(&config_path, text.as_bytes())
+        .map_err(|e| format!("Error al guardar configuración: {}", e))?;
+
+    Ok(preferences)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -864,7 +954,9 @@ pub fn run() {
             backup_wiki,
             search_markdown_content,
             get_wiki_root,
-            set_wiki_root
+            set_wiki_root,
+            get_ui_preferences,
+            set_ui_preferences
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

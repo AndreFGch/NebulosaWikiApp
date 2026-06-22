@@ -16,6 +16,7 @@ import {
   clampZoom,
   centerGraph,
   bindGraphEvents,
+  reconcileVelocities,
   type WikiNode,
   type WikiGraph,
 } from "./features/wiki-graph";
@@ -811,24 +812,12 @@ function App() {
         if (si !== undefined && ti !== undefined) edgeLinks.push({ si, ti });
       });
 
-      if (isFirstBuild) {
-        velocitiesRef.current.clear();
-        nodeArr.forEach((n) => { velocitiesRef.current.set(n.id(), { vx: 0, vy: 0 }); });
-        alphaRef.current = 1.0;
-      } else {
-        const currentIds = new Set(nodeArr.map((n) => n.id()));
-        for (const id of Array.from(velocitiesRef.current.keys())) {
-          if (!currentIds.has(id)) velocitiesRef.current.delete(id);
-        }
-        let hasNewNodes = false;
-        nodeArr.forEach((n) => {
-          if (!velocitiesRef.current.has(n.id())) {
-            velocitiesRef.current.set(n.id(), { vx: 0, vy: 0 });
-            hasNewNodes = true;
-          }
-        });
-        alphaRef.current = hasNewNodes ? 0.3 : 0.05;
-      }
+      const reconcileResult = reconcileVelocities(
+        velocitiesRef.current,
+        nodeArr.map((n) => n.id()),
+        isFirstBuild
+      );
+      alphaRef.current = reconcileResult.alpha;
 
       const simulate = () => {
         rafRef.current = requestAnimationFrame(simulate);

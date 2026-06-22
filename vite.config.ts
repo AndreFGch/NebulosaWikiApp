@@ -25,8 +25,11 @@ export default defineConfig(async () => ({
         }
       : undefined,
     watch: {
-      // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      // 3. tell Vite to ignore backend files and runtime WebView2 cache
+      ignored: [
+        "**/src-tauri/**",
+        "**/data/webview/**",
+      ],
     },
   },
 }));

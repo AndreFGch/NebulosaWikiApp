@@ -10,6 +10,7 @@ import {
   sanitizeId,
   getGraphHealth,
   buildRadialPositions,
+  runCoseLayout,
   FOLDER_COLORS,
   GRAPH_STYLE,
   buildGraphElements,
@@ -757,13 +758,6 @@ function App() {
     const savedPositions = graphPositionsRef.current;
 
     const { elements, rootId, filteredEdges } = buildGraphElements(wikiGraph);
-    const positionMap = buildRadialPositions(wikiGraph.nodes, filteredEdges, rootId);
-    if (!isFirstBuild) {
-      for (const node of wikiGraph.nodes) {
-        const saved = savedPositions.get(node.id);
-        if (saved) positionMap.set(node.id, saved);
-      }
-    }
 
     const cy = cytoscape({
       container: graphContainerRef.current,
@@ -777,14 +771,7 @@ function App() {
       wheelSensitivity: 0.18,
     });
 
-    const layoutRun = cy.layout({
-      name: "preset",
-      positions: (node: any) => positionMap.get(node.id()) ?? { x: 0, y: 0 },
-      fit: isFirstBuild,
-      padding: 70,
-    } as unknown as cytoscape.LayoutOptions);
-
-    layoutRun.on("layoutstop", () => {
+    const handleLayoutStop = () => {
       if (rootId) {
         const rootEl = cy.nodes(`#${rootId}`);
         if (!rootEl.empty()) rootEl.addClass("nw-root");
@@ -830,9 +817,27 @@ function App() {
         rafRef,
       });
       simulation.start();
-    });
+    };
 
-    layoutRun.run();
+    if (isFirstBuild) {
+      runCoseLayout(cy, handleLayoutStop);
+    } else {
+      const positionMap = buildRadialPositions(wikiGraph.nodes, filteredEdges, rootId);
+      for (const node of wikiGraph.nodes) {
+        const saved = savedPositions.get(node.id);
+        if (saved) positionMap.set(node.id, saved);
+      }
+
+      const layoutRun = cy.layout({
+        name: "preset",
+        positions: (node: any) => positionMap.get(node.id()) ?? { x: 0, y: 0 },
+        fit: false,
+        padding: 70,
+      } as unknown as cytoscape.LayoutOptions);
+
+      layoutRun.on("layoutstop", handleLayoutStop);
+      layoutRun.run();
+    }
 
     cy.on("free", "node", (evt) => {
       velocitiesRef.current.set(evt.target.id(), { vx: 0, vy: 0 });

@@ -5,3 +5,5 @@ export { getGraphHealth } from "./model/getGraphHealth";
 export { buildRadialPositions } from "./layout/buildRadialPositions";
 export { FOLDER_COLORS, GRAPH_STYLE } from "./cytoscape/graphStyle";
 export { buildGraphElements } from "./cytoscape/buildGraphElements";
+export { clampZoom, centerGraph } from "./cytoscape/centerGraph";
+export { bindGraphEvents } from "./cytoscape/bindGraphEvents";

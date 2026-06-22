@@ -13,6 +13,9 @@ import {
   FOLDER_COLORS,
   GRAPH_STYLE,
   buildGraphElements,
+  clampZoom,
+  centerGraph,
+  bindGraphEvents,
   type WikiNode,
   type WikiGraph,
 } from "./features/wiki-graph";
@@ -91,12 +94,6 @@ function buildNoteTemplateContent(template: NoteTemplate, title: string, date: s
     default:
       return `---\ntipo: note\ntitulo: ${title}\nfecha: ${date}\ntags:\n  - nebulosa\n---\n\n# ${title}\n\n- \n`;
   }
-}
-
-function clampZoom(cy: cytoscape.Core): void {
-  const z = cy.zoom();
-  if (z < 0.55) cy.zoom(0.55);
-  if (z > 1.2)  cy.zoom(1.2);
 }
 
 const GRAPH_TYPE_LABELS: { type: string; label: string }[] = [
@@ -723,13 +720,6 @@ function App() {
     }
   }, [selectedNote, deleteConfirmText, showToast, requestGraphRefresh]);
 
-  const centerGraph = useCallback((cy: cytoscape.Core, _rid: string | null) => {
-    cy.fit(cy.elements(), 140);
-    clampZoom(cy);
-    cy.center(cy.elements());
-    alphaRef.current = 0.45;
-  }, []);
-
   useEffect(() => {
     if (notes.length === 0 || graphBuildBusyRef.current) return;
 
@@ -960,46 +950,12 @@ function App() {
       alphaRef.current = Math.max(alphaRef.current, 0.8);
     });
 
-    cy.on("mouseover", "node", (evt) => {
-      const node = evt.target;
-      node.addClass("nw-hovered");
-      alphaRef.current = Math.max(alphaRef.current, 0.25);
-      if (!selectedNoteRef.current) {
-        const nodeId = node.id();
-        cy.edges().forEach((e) => {
-          if (e.source().id() === nodeId || e.target().id() === nodeId) {
-            e.addClass("nw-connected-hover");
-            const other = e.source().id() === nodeId ? e.target() : e.source();
-            other.addClass("nw-neighbor");
-          } else {
-            e.addClass("nw-dimmed-hover");
-          }
-        });
-        cy.nodes().forEach((n) => {
-          if (n.id() !== nodeId && !n.hasClass("nw-neighbor")) {
-            n.addClass("nw-dimmed");
-          }
-        });
-      }
-    });
-
-    cy.on("mouseout", "node", (evt) => {
-      evt.target.removeClass("nw-hovered");
-      if (!selectedNoteRef.current) {
-        cy.nodes().removeClass("nw-neighbor nw-dimmed");
-        cy.edges().removeClass("nw-connected-hover nw-dimmed-hover");
-      }
-    });
-
-    cy.on("tap", "node", (evt) => {
-      if (!evt.target.data("exists")) return;
-      const relPath: string = evt.target.data("relativePath");
-      const note = notesRef.current.find((n) => n.relativePath === relPath);
-      if (note) handleNoteClickRef.current(note);
-    });
-
-    cy.on("tap", (evt) => {
-      if (evt.target === cy) setSelectedNote(null);
+    bindGraphEvents(cy, {
+      notesRef,
+      selectedNoteRef,
+      alphaRef,
+      onNodeClick: (note) => handleNoteClickRef.current(note),
+      onBackgroundClick: () => setSelectedNote(null),
     });
 
     cyRef.current = cy;
@@ -1565,7 +1521,7 @@ function App() {
               </button>
               <button
                 className="nw-view-btn"
-                onClick={() => { if (cyRef.current) centerGraph(cyRef.current, rootIdRef.current); }}
+                onClick={() => { if (cyRef.current) centerGraph(cyRef.current, alphaRef); }}
               >
                 Centrar
               </button>

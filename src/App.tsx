@@ -18,6 +18,7 @@ import {
   bindGraphEvents,
   reconcileVelocities,
   createGraphSimulation,
+  captureGraphState,
   type WikiNode,
   type WikiGraph,
 } from "./features/wiki-graph";
@@ -854,10 +855,9 @@ function App() {
       }
 
       // Capturar posiciones y viewport ANTES de destruir, mientras cy aún vive.
-      const posMap = new Map<string, { x: number; y: number }>();
-      cy.nodes().forEach((n) => { posMap.set(n.id(), n.position()); });
-      graphPositionsRef.current = posMap;
-      graphViewportRef.current = { zoom: cy.zoom(), pan: cy.pan() };
+      const captured = captureGraphState(cy);
+      graphPositionsRef.current = captured.positions;
+      graphViewportRef.current = captured.viewport;
 
       cy.destroy();
       cyRef.current = null;

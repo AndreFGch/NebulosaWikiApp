@@ -119,7 +119,9 @@ pub fn write_markdown_atomic(destination: &Path, content: &[u8]) -> std::io::Res
         .create_new(true)
         .open(&temp_path)?;
 
-    let write_result = temp_file.write_all(content).and_then(|_| temp_file.sync_all());
+    let write_result = temp_file
+        .write_all(content)
+        .and_then(|_| temp_file.sync_all());
     drop(temp_file);
 
     if let Err(e) = write_result {
@@ -217,7 +219,10 @@ mod atomic_write_tests {
         let result = write_markdown_atomic(&target, b"contenido");
 
         assert!(result.is_err());
-        assert!(target.is_dir(), "el destino original debe permanecer intacto");
+        assert!(
+            target.is_dir(),
+            "el destino original debe permanecer intacto"
+        );
         assert!(no_leftover_temp_files(td.path()));
     }
 

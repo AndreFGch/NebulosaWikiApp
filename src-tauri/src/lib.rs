@@ -44,6 +44,13 @@ struct WikiConfig {
     ui_preferences: UiPreferences,
 }
 
+/// Deserializa settings.json tolerando el BOM UTF-8 que puede agregar
+/// Windows PowerShell al guardar el archivo con Set-Content -Encoding UTF8.
+fn parse_wiki_config(text: &str) -> Option<WikiConfig> {
+    let normalized = text.trim_start_matches('\u{feff}');
+    serde_json::from_str(normalized).ok()
+}
+
 /// Lee settings.json completo si existe; None si no existe o está corrupto.
 /// Usado para preservar el campo que cada comando no está escribiendo.
 fn read_existing_config(app: &tauri::AppHandle) -> Result<Option<WikiConfig>, String> {
@@ -53,7 +60,7 @@ fn read_existing_config(app: &tauri::AppHandle) -> Result<Option<WikiConfig>, St
     }
     let text = std::fs::read_to_string(&config_path)
         .map_err(|e| format!("Error al leer configuración: {}", e))?;
-    Ok(serde_json::from_str(&text).ok())
+    Ok(parse_wiki_config(&text))
 }
 
 fn get_configured_ui_preferences(app: &tauri::AppHandle) -> Result<UiPreferences, String> {
@@ -106,8 +113,10 @@ fn get_configured_wiki_root(app: &tauri::AppHandle) -> Result<std::path::PathBuf
     let text = std::fs::read_to_string(&config_path)
         .map_err(|e| format!("Error al leer configuración: {}", e))?;
     let fallback = default_wiki().to_string_lossy().to_string();
-    let cfg: WikiConfig = serde_json::from_str(&text)
-        .unwrap_or(WikiConfig { wiki_root: fallback, ui_preferences: UiPreferences::default() });
+    let cfg = parse_wiki_config(&text).unwrap_or(WikiConfig {
+        wiki_root: fallback,
+        ui_preferences: UiPreferences::default(),
+    });
     Ok(std::path::PathBuf::from(cfg.wiki_root))
 }
 
@@ -965,6 +974,18 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn config_with_utf8_bom_preserves_wiki_root_and_ui_preferences() {
+        let text = "\u{feff}{\n  \"wiki_root\": \"D:\\\\NebulosaWikiGraphTest\",\n  \"ui_preferences\": {\n    \"theme\": \"light\",\n    \"accent\": \"amber\",\n    \"density\": \"compact\"\n  }\n}";
+
+        let config = parse_wiki_config(text).expect("La configuración con BOM debe deserializar");
+
+        assert_eq!(config.wiki_root, "D:\\NebulosaWikiGraphTest");
+        assert_eq!(config.ui_preferences.theme, "light");
+        assert_eq!(config.ui_preferences.accent, "amber");
+        assert_eq!(config.ui_preferences.density, "compact");
+    }
 
     struct TempDir(std::path::PathBuf);
     impl TempDir {

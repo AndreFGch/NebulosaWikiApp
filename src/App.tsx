@@ -255,6 +255,7 @@ function App() {
       .catch(() => {});
   }, []);
 
+
   const handleNoteClick = useCallback((note: MarkdownFile) => {
     if (detailMode === "edit" && editContent !== noteContent) {
       if (!window.confirm("Tienes cambios sin guardar. ¿Deseas descartar los cambios y abrir otra nota?")) {
@@ -969,9 +970,6 @@ function App() {
   return (
     <div
       className={`nw-shell${!isSidebarOpen ? " nw-shell--sidebar-collapsed" : ""}${!isDetailOpen ? " nw-shell--detail-collapsed" : ""}`}
-      data-theme="dark"
-      data-accent="violet"
-      data-density="comfortable"
     >
       <nav className="nw-ribbon">
         <button

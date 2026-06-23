@@ -1,109 +1,4 @@
-:root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
-  font-weight: 400;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  --bg: #0d0f14;
-  --surface: #161922;
-  --surface-hover: #1c2030;
-  --border: #252a36;
-  --accent: #7c6af7;
-  --accent-dim: #4e4499;
-  --text: #e2e4ee;
-  --text-muted: #7c8099;
-  --text-dim: #4e5268;
-  --badge-bg: #1e2235;
-  --code-bg: #1a1d2e;
-  --code-text: #c9d1ff;
-  --ok: #4ade80;
-  --error: #f87171;
-
-  /* ── Densidad: comfortable (default) ───────────────────────── */
-  --space-action-y: 8px;
-  --space-action-x: 16px;
-  --space-action-main-y: 10px;
-  --space-action-main-x: 20px;
-  --space-card-y: 14px;
-  --space-card-x: 22px;
-  --space-stack: 24px;
-  --radius-action: 7px;
-  --radius-card: 12px;
-}
-
-/* ── Tema claro ───────────────────────────────────────────────
-   Activado vía [data-theme="light"] en .nw-shell. No usado por
-   defecto todavía; base lista para UI-03/UI-04. */
-[data-theme="light"] {
-  --bg: #f5f5f7;
-  --surface: #ffffff;
-  --surface-hover: #ececf3;
-  --border: #dcdce4;
-  --text: #1c1d24;
-  --text-muted: #5a5d6e;
-  --text-dim: #8b8e9e;
-  --badge-bg: #eeeef4;
-  --code-bg: #ececf3;
-  --code-text: #3a3a5a;
-  --ok: #15803d;
-  --error: #b91c1c;
-}
-
-/* ── Acentos ──────────────────────────────────────────────────
-   "violet" replica el acento actual; el resto queda listo para
-   UI-03/UI-04 conectar un selector real. */
-[data-accent="violet"] {
-  --accent: #7c6af7;
-  --accent-dim: #4e4499;
-}
-
-[data-accent="amber"] {
-  --accent: #f5a623;
-  --accent-dim: #8a611a;
-}
-
-[data-accent="sage"] {
-  --accent: #7fae8e;
-  --accent-dim: #44614c;
-}
-
-[data-accent="terracotta"] {
-  --accent: #e0775f;
-  --accent-dim: #7e4536;
-}
-
-/* ── Densidad: compact ────────────────────────────────────────
-   Reduce spacing de botones/cards sin tocar layout ni clases. */
-[data-density="compact"] {
-  --space-action-y: 5px;
-  --space-action-x: 12px;
-  --space-action-main-y: 7px;
-  --space-action-main-x: 15px;
-  --space-card-y: 9px;
-  --space-card-x: 16px;
-  --space-stack: 16px;
-  --radius-action: 6px;
-  --radius-card: 9px;
-}
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-body {
-  background-color: var(--bg);
-  color: var(--text);
-  height: 100vh;
-  overflow: hidden;
-}
+/* Tokens, temas, densidad y reset global viven en src/styles/ (importado desde main.tsx). */
 
 /* ── 3-column shell ─────────────────────────────────────────── */
 .nw-shell {
@@ -118,7 +13,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: #0b0d12;
+  background: var(--surface-sunken);
   border-right: 1px solid rgba(37, 42, 54, 0.55);
   padding: 8px 0 6px;
   gap: 2px;
@@ -318,7 +213,7 @@ body {
   flex-direction: column;
   min-width: 0;
   border-right: 1px solid var(--border);
-  background: #07090e;
+  background: var(--bg);
   position: relative;
 }
 
@@ -1145,50 +1040,6 @@ button.nw-wikilink--missing:disabled {
   font-size: 0.75rem;
   color: var(--text-dim);
   font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
-}
-
-.nw-home-health-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  padding: var(--space-card-y) var(--space-card-x);
-}
-
-.nw-home-health-panel--warning {
-  border-color: rgba(248, 113, 113, 0.3);
-}
-
-.nw-home-health-headline {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.nw-home-health-panel--healthy .nw-home-health-headline { color: #86efac; }
-.nw-home-health-panel--warning .nw-home-health-headline { color: #f87171; }
-.nw-home-health-panel--pending .nw-home-health-headline { color: var(--text-dim); }
-
-.nw-home-health-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-.nw-home-health-item--ok { color: var(--text-muted); }
-.nw-home-health-item--warning { color: #f87171; font-weight: 600; }
-.nw-home-health-item--notice { color: #fbbf24; }
-
-.nw-home-health-action {
-  font-size: 0.78rem;
-  color: var(--text-dim);
 }
 
 .nw-home-stats {

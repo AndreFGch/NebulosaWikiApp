@@ -2,7 +2,9 @@ use serde::{Serialize, Deserialize};
 use std::path::Path;
 
 mod infrastructure;
-use infrastructure::filesystem_vault::walk_vault_entries;
+use infrastructure::filesystem_vault::{
+    create_markdown_exclusive, walk_vault_entries, write_markdown_atomic,
+};
 
 #[derive(Serialize, Deserialize, Clone)]
 struct UiPreferences {
@@ -248,7 +250,7 @@ fn update_markdown_file(app_handle: tauri::AppHandle, relative_path: String, con
     }
     let canonical = validate_within_wiki_root(wiki_root, &candidate)?;
 
-    std::fs::write(&canonical, content.as_bytes())
+    write_markdown_atomic(&canonical, content.as_bytes())
         .map_err(|e| format!("Error al escribir el archivo: {}", e))
 }
 
@@ -311,20 +313,13 @@ fn create_markdown_file(app_handle: tauri::AppHandle, relative_path: String, con
         }
     }
 
-    use std::io::Write;
-    let mut file = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&candidate)
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::AlreadyExists {
-                "El archivo ya existe. Elegí un nombre diferente.".to_string()
-            } else {
-                format!("Error al crear el archivo: {}", e)
-            }
-        })?;
-    file.write_all(content.as_bytes())
-        .map_err(|e| format!("Error al escribir el contenido: {}", e))
+    create_markdown_exclusive(&candidate, content.as_bytes()).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::AlreadyExists {
+            "El archivo ya existe. Elegí un nombre diferente.".to_string()
+        } else {
+            format!("Error al crear el archivo: {}", e)
+        }
+    })
 }
 
 #[tauri::command]

@@ -1,6 +1,9 @@
 use serde::{Serialize, Deserialize};
 use std::path::Path;
 
+mod infrastructure;
+use infrastructure::filesystem_vault::walk_vault_entries;
+
 #[derive(Serialize, Deserialize, Clone)]
 struct UiPreferences {
     theme: String,
@@ -129,37 +132,6 @@ pub struct MarkdownFile {
     pub folder: String,
 }
 
-fn walk_dir(dir: &Path, root: &Path, results: &mut Vec<MarkdownFile>) -> std::io::Result<()> {
-    for entry in std::fs::read_dir(dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_dir() {
-            let dir_name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-            if dir_name.starts_with('.') {
-                continue;
-            }
-            walk_dir(&path, root, results)?;
-        } else if path.extension().map_or(false, |e| e == "md") {
-            let relative = path.strip_prefix(root).unwrap_or(&path);
-            let relative_path = relative.to_string_lossy().replace('\\', "/");
-            let folder = relative
-                .parent()
-                .map(|p| p.to_string_lossy().replace('\\', "/"))
-                .unwrap_or_default();
-            let title = path
-                .file_stem()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_default();
-            results.push(MarkdownFile {
-                title,
-                path: path.to_string_lossy().to_string(),
-                relative_path,
-                folder,
-            });
-        }
-    }
-    Ok(())
-}
 
 fn validate_within_wiki_root(
     root: &Path,
@@ -202,9 +174,32 @@ fn list_markdown_files(app_handle: tauri::AppHandle) -> Result<Vec<MarkdownFile>
             wiki_root.display()
         ));
     }
+    let canonical_root = wiki_root
+        .canonicalize()
+        .map_err(|e| format!("Error al resolver la raíz de la wiki: {}", e))?;
     let mut results = Vec::new();
-    walk_dir(wiki_root, wiki_root, &mut results)
-        .map_err(|e| format!("Error al leer la wiki: {}", e))?;
+    walk_vault_entries(wiki_root, wiki_root, &canonical_root, &|_| false, &mut |path, relative| {
+        if path.extension().map_or(true, |e| e != "md") {
+            return Ok(());
+        }
+        let relative_path = relative.to_string_lossy().replace('\\', "/");
+        let folder = relative
+            .parent()
+            .map(|p| p.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_default();
+        let title = path
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_default();
+        results.push(MarkdownFile {
+            title,
+            path: path.to_string_lossy().to_string(),
+            relative_path,
+            folder,
+        });
+        Ok(())
+    })
+    .map_err(|e| format!("Error al leer la wiki: {}", e))?;
     results.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
     Ok(results)
 }
@@ -491,43 +486,43 @@ fn import_markdown_file(app_handle: tauri::AppHandle, source_path: String, targe
 }
 
 fn walk_and_export(
-    dir: &Path,
-    root: &Path,
+    canonical_root: &Path,
     target_root: &Path,
     count: &mut u32,
 ) -> Result<(), String> {
-    for entry in std::fs::read_dir(dir)
-        .map_err(|e| format!("Error al leer directorio: {}", e))?
-    {
-        let entry = entry.map_err(|e| format!("Error al leer entrada: {}", e))?;
-        let path = entry.path();
-        if path.is_dir() {
-            let dir_name = path.file_name().unwrap_or_default().to_string_lossy();
-            if dir_name.starts_with('.') || dir_name == "node_modules" {
-                continue;
+    let skip_dir = |name: &str| name == "node_modules";
+    walk_vault_entries(
+        canonical_root,
+        canonical_root,
+        canonical_root,
+        &skip_dir,
+        &mut |path, relative| {
+            if path.extension().map_or(false, |e| e.eq_ignore_ascii_case("md")) {
+                let dest = target_root.join(relative);
+                if let Some(parent) = dest.parent() {
+                    std::fs::create_dir_all(parent).map_err(|e| {
+                        std::io::Error::other(format!("Error al crear subcarpeta: {}", e))
+                    })?;
+                }
+                if dest.exists() {
+                    return Err(std::io::Error::other(format!(
+                        "El archivo ya existe en el destino: {}",
+                        relative.to_string_lossy().replace('\\', "/")
+                    )));
+                }
+                std::fs::copy(path, &dest).map_err(|e| {
+                    std::io::Error::other(format!(
+                        "Error al copiar {}: {}",
+                        relative.to_string_lossy(),
+                        e
+                    ))
+                })?;
+                *count += 1;
             }
-            walk_and_export(&path, root, target_root, count)?;
-        } else if path.extension().map_or(false, |e| e.eq_ignore_ascii_case("md")) {
-            let relative = path
-                .strip_prefix(root)
-                .map_err(|_| "Error al calcular ruta relativa.".to_string())?;
-            let dest = target_root.join(relative);
-            if let Some(parent) = dest.parent() {
-                std::fs::create_dir_all(parent)
-                    .map_err(|e| format!("Error al crear subcarpeta: {}", e))?;
-            }
-            if dest.exists() {
-                return Err(format!(
-                    "El archivo ya existe en el destino: {}",
-                    relative.to_string_lossy().replace('\\', "/")
-                ));
-            }
-            std::fs::copy(&path, &dest)
-                .map_err(|e| format!("Error al copiar {}: {}", relative.to_string_lossy(), e))?;
-            *count += 1;
-        }
-    }
-    Ok(())
+            Ok(())
+        },
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -566,7 +561,7 @@ fn export_wiki(app_handle: tauri::AppHandle, target_dir: String) -> Result<u32, 
     }
 
     let mut count: u32 = 0;
-    walk_and_export(&canonical_root, &canonical_root, &canonical_target, &mut count)?;
+    walk_and_export(&canonical_root, &canonical_target, &mut count)?;
     Ok(count)
 }
 
@@ -646,7 +641,7 @@ fn backup_wiki(app_handle: tauri::AppHandle, target_base_dir: String) -> Result<
         .map_err(|e| format!("Error al crear carpeta de backup: {}", e))?;
 
     let mut count: u32 = 0;
-    walk_and_export(&canonical_root, &canonical_root, &backup_dir, &mut count)?;
+    walk_and_export(&canonical_root, &backup_dir, &mut count)?;
 
     Ok(backup_dir.to_string_lossy().to_string())
 }
@@ -801,45 +796,42 @@ fn rank_results(mut scored: Vec<ScoredResult>) -> Vec<SearchResult> {
 }
 
 fn walk_search(
-    dir: &Path,
     root: &Path,
+    canonical_root: &Path,
     query_lower: &str,
     query_norm: &str,
     results: &mut Vec<ScoredResult>,
 ) -> std::io::Result<()> {
-    for entry in std::fs::read_dir(dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_dir() {
-            let name = path.file_name().unwrap_or_default().to_string_lossy();
-            if name.starts_with('.') || name == "node_modules" { continue; }
-            walk_search(&path, root, query_lower, query_norm, results)?;
-        } else if path.extension().map_or(false, |e| e.eq_ignore_ascii_case("md")) {
-            let content = match std::fs::read_to_string(&path) {
-                Ok(c) => c,
-                Err(_) => continue,
-            };
-            let content_norm = normalize_search_text(&content);
-            if !content_norm.contains(query_norm) { continue; }
-            let relative = path.strip_prefix(root).unwrap_or(&path);
-            let relative_path = relative.to_string_lossy().replace('\\', "/");
-            let folder = relative
-                .iter()
-                .next()
-                .map(|c| c.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
-            let title = extract_search_title(&content, &stem);
-            let snippet = extract_snippet(&content, query_lower, 160);
-            let tags_text = extract_tags_text(&content);
-            let score = search_score(query_norm, &title, &tags_text, &relative_path, &content_norm);
-            results.push(ScoredResult {
-                score,
-                result: SearchResult { relative_path, title, folder, snippet },
-            });
+    let skip_dir = |name: &str| name == "node_modules";
+    walk_vault_entries(root, root, canonical_root, &skip_dir, &mut |path, relative| {
+        if !path.extension().map_or(false, |e| e.eq_ignore_ascii_case("md")) {
+            return Ok(());
         }
-    }
-    Ok(())
+        let content = match std::fs::read_to_string(path) {
+            Ok(c) => c,
+            Err(_) => return Ok(()),
+        };
+        let content_norm = normalize_search_text(&content);
+        if !content_norm.contains(query_norm) {
+            return Ok(());
+        }
+        let relative_path = relative.to_string_lossy().replace('\\', "/");
+        let folder = relative
+            .iter()
+            .next()
+            .map(|c| c.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+        let title = extract_search_title(&content, &stem);
+        let snippet = extract_snippet(&content, query_lower, 160);
+        let tags_text = extract_tags_text(&content);
+        let score = search_score(query_norm, &title, &tags_text, &relative_path, &content_norm);
+        results.push(ScoredResult {
+            score,
+            result: SearchResult { relative_path, title, folder, snippet },
+        });
+        Ok(())
+    })
 }
 
 #[tauri::command]
@@ -855,8 +847,11 @@ fn search_markdown_content(app_handle: tauri::AppHandle, query: String) -> Resul
     if !wiki_root.exists() {
         return Err(format!("La carpeta de la wiki no existe: {}", wiki_root.display()));
     }
+    let canonical_root = wiki_root
+        .canonicalize()
+        .map_err(|e| format!("Error al resolver la raíz de la wiki: {}", e))?;
     let mut scored: Vec<ScoredResult> = Vec::new();
-    walk_search(wiki_root, wiki_root, &query_lower, &query_norm, &mut scored)
+    walk_search(wiki_root, &canonical_root, &query_lower, &query_norm, &mut scored)
         .map_err(|e| format!("Error al buscar: {}", e))?;
     Ok(rank_results(scored))
 }
@@ -1082,12 +1077,18 @@ mod tests {
         std::fs::create_dir_all(root.join(".nebulosa")).unwrap();
         std::fs::write(root.join(".nebulosa").join("hidden.md"), "hidden").unwrap();
 
+        let canonical_root = root.canonicalize().unwrap();
         let mut results = Vec::new();
-        walk_dir(root, root, &mut results).unwrap();
+        walk_vault_entries(root, root, &canonical_root, &|_| false, &mut |path, relative| {
+            if path.extension().map_or(false, |e| e == "md") {
+                results.push(relative.to_string_lossy().replace('\\', "/"));
+            }
+            Ok(())
+        })
+        .unwrap();
 
-        let paths: Vec<&str> = results.iter().map(|f| f.relative_path.as_str()).collect();
-        assert!(paths.contains(&"notes/test.md"), "notes/test.md debe aparecer");
-        assert!(!paths.iter().any(|p| p.contains(".nebulosa")), ".nebulosa no debe aparecer");
+        assert!(results.contains(&"notes/test.md".to_string()), "notes/test.md debe aparecer");
+        assert!(!results.iter().any(|p| p.contains(".nebulosa")), ".nebulosa no debe aparecer");
     }
 
     #[test]
@@ -1099,12 +1100,103 @@ mod tests {
         std::fs::create_dir_all(src.path().join(".nebulosa")).unwrap();
         std::fs::write(src.path().join(".nebulosa").join("hidden.md"), "hidden").unwrap();
 
+        let canonical_src = src.path().canonicalize().unwrap();
         let mut count = 0u32;
-        walk_and_export(src.path(), src.path(), dst.path(), &mut count).unwrap();
+        walk_and_export(&canonical_src, dst.path(), &mut count).unwrap();
 
         assert_eq!(count, 1, "solo un archivo visible debe exportarse");
         assert!(dst.path().join("notes").join("visible.md").exists());
         assert!(!dst.path().join(".nebulosa").exists());
+    }
+
+    #[test]
+    fn walk_vault_entries_traverses_nested_directories() {
+        let td = TempDir::new("walk_nested");
+        let root = td.path();
+        std::fs::create_dir_all(root.join("a").join("b").join("c")).unwrap();
+        std::fs::write(root.join("a").join("b").join("c").join("deep.md"), "deep").unwrap();
+
+        let canonical_root = root.canonicalize().unwrap();
+        let mut found = Vec::new();
+        walk_vault_entries(root, root, &canonical_root, &|_| false, &mut |_, relative| {
+            found.push(relative.to_string_lossy().replace('\\', "/"));
+            Ok(())
+        })
+        .unwrap();
+
+        assert!(found.contains(&"a/b/c/deep.md".to_string()), "archivo anidado debe recorrerse");
+    }
+
+    #[test]
+    fn walk_vault_entries_keeps_markdown_files_within_root() {
+        let td = TempDir::new("walk_keeps_md");
+        let root = td.path();
+        std::fs::write(root.join("nota.md"), "# Nota").unwrap();
+
+        let canonical_root = root.canonicalize().unwrap();
+        let mut found = Vec::new();
+        walk_vault_entries(root, root, &canonical_root, &|_| false, &mut |path, relative| {
+            assert!(path.canonicalize().unwrap().starts_with(&canonical_root));
+            found.push(relative.to_string_lossy().replace('\\', "/"));
+            Ok(())
+        })
+        .unwrap();
+
+        assert_eq!(found, vec!["nota.md".to_string()]);
+    }
+
+    #[test]
+    fn canonical_boundary_predicate_rejects_outside_path() {
+        // Verifica el predicado central de la politica (starts_with sobre
+        // rutas canonicas) sin depender de symlinks/junctions, que en
+        // Windows requieren privilegios elevados o modo desarrollador.
+        let td = TempDir::new("boundary_predicate");
+        let root = td.path().join("wiki");
+        let outside = td.path().join("outside");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+
+        let canonical_root = root.canonicalize().unwrap();
+        let canonical_outside = outside.canonicalize().unwrap();
+
+        assert!(!canonical_outside.starts_with(&canonical_root), "ruta fuera del root debe rechazarse");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn walk_vault_entries_does_not_follow_symlink_outside_root() {
+        // Limitacion documentada: crear un symlink de directorio en Windows
+        // requiere privilegios de Administrador o modo desarrollador
+        // habilitado. Si el entorno no lo permite, la prueba se omite en
+        // lugar de fingir cobertura (ver SAFE-01).
+        use std::os::windows::fs::symlink_dir;
+
+        let td = TempDir::new("walk_symlink");
+        let root = td.path().join("wiki");
+        let outside = td.path().join("outside");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(outside.join("secret.md"), "secret").unwrap();
+
+        let link = root.join("escape");
+        if symlink_dir(&outside, &link).is_err() {
+            eprintln!(
+                "walk_vault_entries_does_not_follow_symlink_outside_root: omitida, \
+                 el entorno no permite crear symlinks de directorio (requiere \
+                 modo desarrollador o privilegios elevados)."
+            );
+            return;
+        }
+
+        let canonical_root = root.canonicalize().unwrap();
+        let mut found = Vec::new();
+        walk_vault_entries(&root, &root, &canonical_root, &|_| false, &mut |_, relative| {
+            found.push(relative.to_string_lossy().replace('\\', "/"));
+            Ok(())
+        })
+        .unwrap();
+
+        assert!(!found.iter().any(|p| p.contains("secret.md")), "no debe seguir symlink hacia afuera del root");
     }
 
     #[test]

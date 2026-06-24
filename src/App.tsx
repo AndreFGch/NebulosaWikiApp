@@ -18,19 +18,13 @@ import {
 import type { MarkdownFile } from "./domain/markdown/types";
 import { normalizeKey } from "./domain/markdown/normalizeKey";
 import { listMarkdownFiles, readMarkdownFile, createMarkdownFile, updateMarkdownFile } from "./shared/tauri/vaultApi";
+import { searchMarkdownContent, type ContentSearchResult } from "./shared/tauri/searchApi";
 
 type DetailMode = "preview" | "raw" | "edit";
 type MainView = "home" | "graph";
 type NoteTemplate = "simple" | "project" | "source" | "skill" | "session" | "index";
 type ToastKind = "success" | "error" | "info";
 interface ToastMessage { id: number; kind: ToastKind; message: string; }
-
-interface ContentSearchResult {
-  relativePath: string;
-  title: string;
-  folder: string;
-  snippet: string;
-}
 
 function stripFrontmatter(content: string): string {
   if (!content.startsWith("---\n") && !content.startsWith("---\r\n")) return content;
@@ -541,7 +535,7 @@ function App() {
     setContentSearchResults([]);
     setContentSearchRan(false);
     try {
-      const results = await invoke<ContentSearchResult[]>("search_markdown_content", { query: q });
+      const results = await searchMarkdownContent(q);
       setContentSearchResults(results);
       setContentSearchRan(true);
     } catch (err) {

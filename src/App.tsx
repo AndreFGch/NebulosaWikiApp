@@ -19,6 +19,7 @@ import type { MarkdownFile } from "./domain/markdown/types";
 import { normalizeKey } from "./domain/markdown/normalizeKey";
 import { listMarkdownFiles, readMarkdownFile, createMarkdownFile, updateMarkdownFile } from "./shared/tauri/vaultApi";
 import { searchMarkdownContent, type ContentSearchResult } from "./shared/tauri/searchApi";
+import { getWikiRoot, setWikiRoot as setWikiRootCommand } from "./shared/tauri/settingsApi";
 
 type DetailMode = "preview" | "raw" | "edit";
 type MainView = "home" | "graph";
@@ -245,7 +246,7 @@ function App() {
   }, [notes]);
 
   useEffect(() => {
-    invoke<string>("get_wiki_root")
+    getWikiRoot()
       .then(root => { setWikiRoot(root); setWikiRootDraft(root); })
       .catch(() => {});
   }, []);
@@ -609,16 +610,17 @@ function App() {
     setWikiRootSaving(true);
     setWikiRootError(null);
     try {
-      const newRoot = await invoke<string>("set_wiki_root", { path: wikiRootDraft });
+      const newRoot = await setWikiRootCommand(wikiRootDraft);
       setWikiRoot(newRoot);
       setWikiRootDraft(newRoot);
       setShowSettingsModal(false);
       setSelectedNote(null);
       setNoteContent("");
       setEditContent("");
-      requestGraphRefresh();
+      hasInitializedGraphRef.current = false;
       const files = await listMarkdownFiles();
       setNotes(files);
+      requestGraphRefresh();
       showToast("success", "Ruta de wiki actualizada");
     } catch (err) {
       setWikiRootError(String(err));

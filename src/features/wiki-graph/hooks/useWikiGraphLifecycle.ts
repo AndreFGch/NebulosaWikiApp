@@ -74,6 +74,14 @@ export function useWikiGraphLifecycle({
       wheelSensitivity: 0.18,
     });
 
+    const syncSimulationActivity = () => {
+      if (document.visibilityState === "visible" && document.hasFocus()) {
+        simulationRef.current?.resume();
+      } else {
+        simulationRef.current?.pause();
+      }
+    };
+
     const handleLayoutStop = () => {
       if (rootId) {
         const rootEl = cy.nodes(`#${rootId}`);
@@ -116,8 +124,8 @@ export function useWikiGraphLifecycle({
         alphaRef,
         rafRef,
       });
-      simulation.start();
       simulationRef.current = simulation;
+      syncSimulationActivity();
     };
 
     if (isFirstBuild) {
@@ -150,14 +158,6 @@ export function useWikiGraphLifecycle({
     });
 
     cyRef.current = cy;
-
-    const syncSimulationActivity = () => {
-      if (document.visibilityState === "visible" && document.hasFocus()) {
-        simulationRef.current?.resume();
-      } else {
-        simulationRef.current?.pause();
-      }
-    };
 
     document.addEventListener("visibilitychange", syncSimulationActivity);
     window.addEventListener("blur", syncSimulationActivity);

@@ -17,6 +17,7 @@ import {
 } from "./features/wiki-graph";
 import type { MarkdownFile } from "./domain/markdown/types";
 import { normalizeKey } from "./domain/markdown/normalizeKey";
+import { listMarkdownFiles, readMarkdownFile, createMarkdownFile, updateMarkdownFile } from "./shared/tauri/vaultApi";
 
 type DetailMode = "preview" | "raw" | "edit";
 type MainView = "home" | "graph";
@@ -233,7 +234,7 @@ function App() {
   }, [notes]);
 
   useEffect(() => {
-    invoke<MarkdownFile[]>("list_markdown_files")
+    listMarkdownFiles()
       .then((files) => { setNotes(files); setLoading(false); })
       .catch((err) => { setError(String(err)); setLoading(false); });
   }, []);
@@ -274,7 +275,7 @@ function App() {
     setContentLoading(true);
     setDetailMode("preview");
     setEditError(null);
-    invoke<string>("read_markdown_file", { relativePath: note.relativePath })
+    readMarkdownFile(note.relativePath)
       .then((content) => { setNoteContent(content); setContentLoading(false); })
       .catch((err) => { setContentError(String(err)); setContentLoading(false); });
   }, [detailMode, editContent, noteContent]);
@@ -292,10 +293,10 @@ function App() {
     setEditSaving(true);
     setEditError(null);
     try {
-      await invoke("update_markdown_file", { relativePath: selectedNote.relativePath, content: editContent });
+      await updateMarkdownFile(selectedNote.relativePath, editContent);
       setNoteContent(editContent);
       setDetailMode("preview");
-      const files = await invoke<MarkdownFile[]>("list_markdown_files");
+      const files = await listMarkdownFiles();
       setNotes(files);
       requestGraphRefresh();
       showToast("success", "Cambios guardados");
@@ -312,7 +313,7 @@ function App() {
       if (!window.confirm("Tienes cambios sin guardar. ¿Recargar de todas formas y descartar los cambios?")) return;
     }
     try {
-      const files = await invoke<MarkdownFile[]>("list_markdown_files");
+      const files = await listMarkdownFiles();
       setNotes(files);
       requestGraphRefresh();
       if (selectedNote) {
@@ -324,7 +325,7 @@ function App() {
           setDetailMode("preview");
         } else {
           setSelectedNote(updated);
-          const content = await invoke<string>("read_markdown_file", { relativePath: updated.relativePath });
+          const content = await readMarkdownFile(updated.relativePath);
           setNoteContent(content);
           setEditContent(content);
         }
@@ -367,8 +368,8 @@ function App() {
     setNewNoteCreating(true);
     setNewNoteError(null);
     try {
-      await invoke("create_markdown_file", { relativePath, content });
-      const files = await invoke<MarkdownFile[]>("list_markdown_files");
+      await createMarkdownFile(relativePath, content);
+      const files = await listMarkdownFiles();
       setNotes(files);
       const created = files.find(f => f.relativePath === relativePath);
       if (created) {
@@ -403,8 +404,8 @@ function App() {
     setCreatingMissingLink(label);
     setRelationActionError(null);
     try {
-      await invoke("create_markdown_file", { relativePath, content });
-      const files = await invoke<MarkdownFile[]>("list_markdown_files");
+      await createMarkdownFile(relativePath, content);
+      const files = await listMarkdownFiles();
       setNotes(files);
       const created = files.find(f => f.relativePath === relativePath);
       if (created) {
@@ -433,8 +434,8 @@ function App() {
     const relativePath = `sessions/${date}.md`;
     const content = `---\ntipo: session\ntitulo: ${title}\nfecha: ${date}\ntags:\n  - nebulosa\n  - diario\n---\n\n# ${title}\n\n## Pendientes\n\n- \n\n## Notas\n\n- \n\n## Enlaces\n\n- \n`;
     try {
-      await invoke("create_markdown_file", { relativePath, content });
-      const files = await invoke<MarkdownFile[]>("list_markdown_files");
+      await createMarkdownFile(relativePath, content);
+      const files = await listMarkdownFiles();
       setNotes(files);
       const created = files.find(f => f.relativePath === relativePath);
       if (created) {
@@ -450,7 +451,7 @@ function App() {
       requestGraphRefresh();
       showToast("success", "Nota diaria creada");
     } catch {
-      const files = await invoke<MarkdownFile[]>("list_markdown_files");
+      const files = await listMarkdownFiles();
       setNotes(files);
       const existing = files.find(f => f.relativePath === relativePath);
       if (existing) {
@@ -472,16 +473,16 @@ function App() {
     const content = `---\ntipo: note\ntitulo: ${title}\nfecha: ${date}\ntags:\n  - nebulosa\n  - quick\n---\n\n# ${title}\n\n- \n`;
     let relativePath = `notes/quick-${base}.md`;
     try {
-      await invoke("create_markdown_file", { relativePath, content });
+      await createMarkdownFile(relativePath, content);
     } catch {
       relativePath = `notes/quick-${base}${pad(now.getSeconds())}.md`;
       try {
-        await invoke("create_markdown_file", { relativePath, content });
+        await createMarkdownFile(relativePath, content);
       } catch {
         return;
       }
     }
-    const files = await invoke<MarkdownFile[]>("list_markdown_files");
+    const files = await listMarkdownFiles();
     setNotes(files);
     const created = files.find(f => f.relativePath === relativePath);
     if (created) {
@@ -515,7 +516,7 @@ function App() {
         sourcePath: src,
         targetFolder: importTargetFolder,
       });
-      const files = await invoke<MarkdownFile[]>("list_markdown_files");
+      const files = await listMarkdownFiles();
       setNotes(files);
       const imported = files.find(f => f.relativePath === relativePath);
       if (imported) handleNoteClick(imported);
@@ -622,7 +623,7 @@ function App() {
       setNoteContent("");
       setEditContent("");
       requestGraphRefresh();
-      const files = await invoke<MarkdownFile[]>("list_markdown_files");
+      const files = await listMarkdownFiles();
       setNotes(files);
       showToast("success", "Ruta de wiki actualizada");
     } catch (err) {
@@ -699,7 +700,7 @@ function App() {
     setDeleteError(null);
     try {
       await invoke("delete_markdown_file", { relativePath: selectedNote.relativePath });
-      const files = await invoke<MarkdownFile[]>("list_markdown_files");
+      const files = await listMarkdownFiles();
       setNotes(files);
       setSelectedNote(null);
       setNoteContent("");
@@ -726,7 +727,7 @@ function App() {
 
     Promise.all(
       notes.map((note) =>
-        invoke<string>("read_markdown_file", { relativePath: note.relativePath })
+        readMarkdownFile(note.relativePath)
           .then((content) => [note.relativePath, content] as [string, string])
           .catch(() => [note.relativePath, ""] as [string, string])
       )

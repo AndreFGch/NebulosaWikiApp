@@ -20,6 +20,7 @@ import { normalizeKey } from "./domain/markdown/normalizeKey";
 import { listMarkdownFiles, readMarkdownFile, createMarkdownFile, updateMarkdownFile } from "./shared/tauri/vaultApi";
 import { searchMarkdownContent, type ContentSearchResult } from "./shared/tauri/searchApi";
 import { getWikiRoot, setWikiRoot as setWikiRootCommand } from "./shared/tauri/settingsApi";
+import { importMarkdownFile, exportMarkdownFile, exportWiki, backupWiki } from "./shared/tauri/transferApi";
 
 type DetailMode = "preview" | "raw" | "edit";
 type MainView = "home" | "graph";
@@ -507,10 +508,7 @@ function App() {
     setImportImporting(true);
     setImportError(null);
     try {
-      const relativePath = await invoke<string>("import_markdown_file", {
-        sourcePath: src,
-        targetFolder: importTargetFolder,
-      });
+      const relativePath = await importMarkdownFile(src, importTargetFolder);
       const files = await listMarkdownFiles();
       setNotes(files);
       const imported = files.find(f => f.relativePath === relativePath);
@@ -577,7 +575,7 @@ function App() {
     setBackupError(null);
     setBackupSuccess(null);
     try {
-      const path = await invoke<string>("backup_wiki", { targetBaseDir: dir });
+      const path = await backupWiki(dir);
       setBackupSuccess(path);
       showToast("success", "Backup creado");
     } catch (err) {
@@ -595,7 +593,7 @@ function App() {
     setExportWikiError(null);
     setExportWikiSuccess(null);
     try {
-      const count = await invoke<number>("export_wiki", { targetDir: dir });
+      const count = await exportWiki(dir);
       setExportWikiSuccess(`Wiki exportada: ${count} archivo${count !== 1 ? "s" : ""} copiado${count !== 1 ? "s" : ""}.`);
       showToast("success", "Wiki exportada");
     } catch (err) {
@@ -676,10 +674,7 @@ function App() {
     setExportError(null);
     setExportSuccess(false);
     try {
-      await invoke("export_markdown_file", {
-        relativePath: selectedNote.relativePath,
-        targetPath: target,
-      });
+      await exportMarkdownFile(selectedNote.relativePath, target);
       setExportSuccess(true);
       showToast("success", "Nota exportada");
     } catch (err) {

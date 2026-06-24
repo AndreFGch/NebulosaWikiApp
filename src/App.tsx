@@ -1,7 +1,5 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, lazy, Suspense } from "react";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import type cytoscape from "cytoscape";
 import "./App.css";
 import {
@@ -21,6 +19,8 @@ import { searchMarkdownContent, type ContentSearchResult } from "./shared/tauri/
 import { getWikiRoot, setWikiRoot as setWikiRootCommand } from "./shared/tauri/settingsApi";
 import { importMarkdownFile, exportMarkdownFile, exportWiki, backupWiki } from "./shared/tauri/transferApi";
 import { deleteMarkdownFile } from "./shared/tauri/deleteApi";
+
+const MarkdownPreview = lazy(() => import("./features/markdown/MarkdownPreview"));
 
 type DetailMode = "preview" | "raw" | "edit";
 type MainView = "home" | "graph";
@@ -1440,10 +1440,10 @@ function App() {
             )}
             {selectedNote && !contentLoading && !contentError && detailMode === "preview" && (
               <div className="nw-markdown-preview">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    a: ({ href, children }) => {
+                <Suspense fallback={null}>
+                  <MarkdownPreview
+                    content={preprocessWikilinks(stripFrontmatter(noteContent))}
+                    renderLink={(href, children) => {
                       if (href?.startsWith("#wikilink/")) {
                         const linkName = decodeURIComponent(href.slice(10));
                         const found = findNoteByWikilink(linkName, notes);
@@ -1471,11 +1471,9 @@ function App() {
                         );
                       }
                       return <a href={href} target="_blank" rel="noreferrer">{children}</a>;
-                    },
-                  }}
-                >
-                  {preprocessWikilinks(stripFrontmatter(noteContent))}
-                </ReactMarkdown>
+                    }}
+                  />
+                </Suspense>
               </div>
             )}
             {selectedNote && !contentLoading && !contentError && detailMode === "raw" && (

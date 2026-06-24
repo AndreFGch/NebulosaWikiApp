@@ -1,17 +1,9 @@
 import { useEffect, useState, useRef, useCallback, useMemo, lazy, Suspense } from "react";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
-import type cytoscape from "cytoscape";
 import "./App.css";
-import {
-  buildWikiGraph,
-  sanitizeId,
-  getGraphHealth,
-  centerGraph,
-  useWikiGraphLifecycle,
-  WikiGraphPanel,
-  type WikiNode,
-  type WikiGraph,
-} from "./features/wiki-graph";
+import { buildWikiGraph, sanitizeId } from "./features/wiki-graph/model/buildWikiGraph";
+import { getGraphHealth } from "./features/wiki-graph/model/getGraphHealth";
+import type { WikiNode, WikiGraph } from "./features/wiki-graph/types";
 import type { MarkdownFile } from "./domain/markdown/types";
 import { normalizeKey } from "./domain/markdown/normalizeKey";
 import { listMarkdownFiles, readMarkdownFile, createMarkdownFile, updateMarkdownFile } from "./shared/tauri/vaultApi";
@@ -21,6 +13,7 @@ import { importMarkdownFile, exportMarkdownFile, exportWiki, backupWiki } from "
 import { deleteMarkdownFile } from "./shared/tauri/deleteApi";
 
 const MarkdownPreview = lazy(() => import("./features/markdown/MarkdownPreview"));
+const WikiGraphView = lazy(() => import("./features/wiki-graph/components/WikiGraphView"));
 
 type DetailMode = "preview" | "raw" | "edit";
 type MainView = "home" | "graph";
@@ -89,18 +82,6 @@ function buildNoteTemplateContent(template: NoteTemplate, title: string, date: s
   }
 }
 
-const GRAPH_TYPE_LABELS: { type: string; label: string }[] = [
-  { type: "notes",     label: "Notas" },
-  { type: "projects",  label: "Proyectos" },
-  { type: "sources",   label: "Fuentes" },
-  { type: "sessions",  label: "Sesiones" },
-  { type: "skills",    label: "Skills" },
-  { type: "indexes",   label: "Índices" },
-  { type: "missing",   label: "Faltantes" },
-];
-
-const ALL_GRAPH_TYPES = GRAPH_TYPE_LABELS.map(t => t.type);
-
 function App() {
   const [notes, setNotes] = useState<MarkdownFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,22 +115,8 @@ function App() {
   }, []);
   const graphBuildBusyRef = useRef(false);
 
-  const [visibleGraphTypes, setVisibleGraphTypes] = useState<string[]>(ALL_GRAPH_TYPES);
-  const [graphViewMode, setGraphViewMode] = useState<"global" | "local">("global");
-
-  const toggleGraphType = useCallback((type: string) => {
-    setVisibleGraphTypes(prev => {
-      if (prev.includes(type)) {
-        if (prev.length === 1) return prev;
-        return prev.filter(t => t !== type);
-      }
-      return [...prev, type];
-    });
-  }, []);
-
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [showGraphControls, setShowGraphControls] = useState(false);
   const [mainView, setMainView] = useState<MainView>("home");
 
   const [showNewNoteModal, setShowNewNoteModal] = useState(false);
@@ -213,21 +180,12 @@ function App() {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
   }, []);
 
-  const graphContainerRef = useRef<HTMLDivElement | null>(null);
-  const cyRef = useRef<cytoscape.Core | null>(null);
-  const rafRef = useRef<number | null>(null);
-  const selectedNoteRef = useRef<MarkdownFile | null>(null);
-  const notesRef = useRef<MarkdownFile[]>([]);
   const rootIdRef = useRef<string | null>(null);
   const velocitiesRef = useRef<Map<string, { vx: number; vy: number }>>(new Map());
   const alphaRef = useRef<number>(1.0);
   const graphPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   const graphViewportRef = useRef<{ zoom: number; pan: { x: number; y: number } } | null>(null);
   const hasInitializedGraphRef = useRef<boolean>(false);
-
-  useEffect(() => {
-    notesRef.current = notes;
-  }, [notes]);
 
   useEffect(() => {
     listMarkdownFiles()
@@ -275,9 +233,6 @@ function App() {
       .then((content) => { setNoteContent(content); setContentLoading(false); })
       .catch((err) => { setContentError(String(err)); setContentLoading(false); });
   }, [detailMode, editContent, noteContent]);
-
-  const handleNoteClickRef = useRef(handleNoteClick);
-  useEffect(() => { handleNoteClickRef.current = handleNoteClick; }, [handleNoteClick]);
 
   const clearRecentNotes = useCallback(() => {
     setRecentNotePaths([]);
@@ -736,120 +691,6 @@ function App() {
     });
   }, [notes, graphRefreshToken]);
 
-  useWikiGraphLifecycle({
-    graphReady,
-    wikiGraph,
-    graphContainerRef,
-    cyRef,
-    graphPositionsRef,
-    graphViewportRef,
-    hasInitializedGraphRef,
-    velocitiesRef,
-    alphaRef,
-    rafRef,
-    rootIdRef,
-    notesRef,
-    selectedNoteRef,
-    onNodeClick: (note) => handleNoteClickRef.current(note),
-    onBackgroundClick: () => setSelectedNote(null),
-  });
-
-  useEffect(() => {
-    selectedNoteRef.current = selectedNote;
-
-    const cy = cyRef.current;
-    if (!cy) return;
-
-    cy.nodes().removeClass("nw-selected nw-neighbor nw-dimmed");
-    cy.edges().removeClass("nw-connected nw-dimmed-edge nw-connected-hover nw-dimmed-hover");
-
-    if (!selectedNote) return;
-
-    const nodeId = sanitizeId(selectedNote.relativePath);
-    const target = cy.nodes(`#${nodeId}`);
-    if (target.empty()) return;
-
-    target.addClass("nw-selected");
-
-    const neighborIds = new Set<string>();
-    cy.edges().forEach((e) => {
-      const src = e.source().id();
-      const tgt = e.target().id();
-      if (src === nodeId) { e.addClass("nw-connected"); neighborIds.add(tgt); }
-      else if (tgt === nodeId) { e.addClass("nw-connected"); neighborIds.add(src); }
-      else e.addClass("nw-dimmed-edge");
-    });
-
-    cy.nodes().forEach((n) => {
-      const id = n.id();
-      if (id === nodeId) return;
-      if (neighborIds.has(id)) n.addClass("nw-neighbor");
-      else n.addClass("nw-dimmed");
-    });
-  }, [selectedNote]);
-
-  useEffect(() => {
-    if (!selectedNote && graphViewMode === "local") setGraphViewMode("global");
-  }, [selectedNote, graphViewMode]);
-
-  useEffect(() => {
-    const cy = cyRef.current;
-    if (!cy || !graphReady) return;
-    const visibleSet = new Set(visibleGraphTypes);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cya = cy as any;
-
-    if (graphViewMode === "local" && selectedNote) {
-      const centerId = sanitizeId(selectedNote.relativePath);
-      const centerNode = cy.getElementById(centerId);
-
-      if (centerNode.empty()) {
-        // center node not in cy — fallback to global behavior
-        const toShow = cy.nodes().filter(n => visibleSet.has(n.data("noteType") as string));
-        const toHide = cy.nodes().filter(n => !visibleSet.has(n.data("noteType") as string));
-        cya.edges().show();
-        (toShow as any).show();
-        (toHide as any).hide();
-        (toHide.connectedEdges() as any).hide();
-        return;
-      }
-
-      const relatedEdges = centerNode.connectedEdges();
-      const neighborNodes = relatedEdges.connectedNodes().not(centerNode);
-
-      const localNodeIds = new Set<string>([centerId]);
-      neighborNodes.forEach((n) => {
-        localNodeIds.add(n.id());
-      });
-
-      const relatedEdgeIds = new Set<string>();
-      relatedEdges.forEach((e) => {
-        relatedEdgeIds.add(e.id());
-      });
-
-      cy.nodes().forEach((n) => {
-        if (localNodeIds.has(n.id()) && visibleSet.has(n.data("noteType") as string)) (n as any).show();
-        else (n as any).hide();
-      });
-
-      cya.edges().forEach((e: any) => {
-        if (
-          relatedEdgeIds.has(e.id()) &&
-          visibleSet.has(cy.getElementById(e.data("source")).data("noteType") as string) &&
-          visibleSet.has(cy.getElementById(e.data("target")).data("noteType") as string)
-        ) e.show();
-        else e.hide();
-      });
-    } else {
-      const toShow = cy.nodes().filter(n => visibleSet.has(n.data("noteType") as string));
-      const toHide = cy.nodes().filter(n => !visibleSet.has(n.data("noteType") as string));
-      cya.edges().show();
-      (toShow as any).show();
-      (toHide as any).hide();
-      (toHide.connectedEdges() as any).hide();
-    }
-  }, [visibleGraphTypes, graphReady, graphViewMode, selectedNote]);
-
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "p") {
@@ -870,10 +711,6 @@ function App() {
   const closeCommandPalette = useCallback(() => {
     setIsCommandPaletteOpen(false);
     setCommandQuery("");
-  }, []);
-
-  const handleCenterGraph = useCallback(() => {
-    if (cyRef.current) centerGraph(cyRef.current, alphaRef);
   }, []);
 
   const wikiHealth = useMemo(() => getGraphHealth(wikiGraph), [wikiGraph]);
@@ -1261,23 +1098,27 @@ function App() {
           </div>
         )}
 
-        <WikiGraphPanel
-          wikiGraph={wikiGraph}
-          graphViewMode={graphViewMode}
-          setGraphViewMode={setGraphViewMode}
-          selectedNote={selectedNote}
-          showToast={showToast}
-          showGraphControls={showGraphControls}
-          setShowGraphControls={setShowGraphControls}
-          onCenterGraph={handleCenterGraph}
-          graphReady={graphReady}
-          graphLoading={graphLoading}
-          graphError={graphError}
-          graphContainerRef={graphContainerRef}
-          visibleGraphTypes={visibleGraphTypes}
-          toggleGraphType={toggleGraphType}
-          graphTypeLabels={GRAPH_TYPE_LABELS}
-        />
+        {mainView === "graph" && (
+          <Suspense fallback={null}>
+            <WikiGraphView
+              notes={notes}
+              wikiGraph={wikiGraph}
+              graphReady={graphReady}
+              graphLoading={graphLoading}
+              graphError={graphError}
+              selectedNote={selectedNote}
+              onNoteClick={handleNoteClick}
+              onClearSelection={() => setSelectedNote(null)}
+              showToast={showToast}
+              graphPositionsRef={graphPositionsRef}
+              graphViewportRef={graphViewportRef}
+              velocitiesRef={velocitiesRef}
+              alphaRef={alphaRef}
+              rootIdRef={rootIdRef}
+              hasInitializedGraphRef={hasInitializedGraphRef}
+            />
+          </Suspense>
+        )}
       </main>
 
       <aside className={`nw-detail-panel${!isDetailOpen ? " nw-detail-panel--collapsed" : ""}`}>

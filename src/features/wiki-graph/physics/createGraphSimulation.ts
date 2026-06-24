@@ -1,6 +1,11 @@
 import type cytoscape from "cytoscape";
 import type { Velocity, EdgeLink, GraphSimulationHandle } from "./simulationTypes";
 
+// Umbral de alpha bajo el cual se abandona la física completa y se pasa a
+// movimiento ambiental barato. Exportado para que el lifecycle pueda
+// detectar el mismo cruce sin duplicar el número mágico.
+export const PHYSICS_ALPHA_THRESHOLD = 0.04;
+
 /**
  * Mantiene el grafo vivo alternando dos regímenes:
  *
@@ -45,9 +50,6 @@ export function createGraphSimulation({
   const LINK_BREATH_PERIOD_MS = 14_000;
   const TAU = Math.PI * 2;
 
-  // Umbral de alpha bajo el cual se abandona la física completa y se pasa a
-  // movimiento ambiental barato.
-  const PHYSICS_ALPHA_THRESHOLD = 0.04;
   // Tope de duración de un episodio de física completa, para que vaults
   // grandes con interacción sostenida no queden en O(n²) indefinidamente.
   const MAX_PHYSICS_DURATION_MS = 6_000;

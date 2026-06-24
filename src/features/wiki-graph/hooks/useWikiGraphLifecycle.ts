@@ -11,10 +11,11 @@ import {
   applyInitialGraphViewport,
   restoreGraphViewport,
 } from "../cytoscape/restoreGraphState";
+import { centerGraph } from "../cytoscape/centerGraph";
 import { runCoseLayout } from "../layout/runCoseLayout";
 import { buildRadialPositions } from "../layout/buildRadialPositions";
 import { reconcileVelocities } from "../physics/reconcileVelocities";
-import { createGraphSimulation } from "../physics/createGraphSimulation";
+import { createGraphSimulation, PHYSICS_ALPHA_THRESHOLD } from "../physics/createGraphSimulation";
 import type { GraphSimulationHandle } from "../physics/simulationTypes";
 
 interface UseWikiGraphLifecycleParams {
@@ -60,6 +61,9 @@ export function useWikiGraphLifecycle({
     const isFirstBuild = !hasInitializedGraphRef.current;
     const savedPositions = graphPositionsRef.current;
 
+    let initialSettleRafId: number | null = null;
+    let userInteractedDuringSettle = false;
+
     const { elements, rootId, filteredEdges } = buildGraphElements(wikiGraph);
 
     const cy = cytoscape({
@@ -88,6 +92,22 @@ export function useWikiGraphLifecycle({
         if (!rootEl.empty()) rootEl.addClass("nw-root");
       }
       rootIdRef.current = rootId;
+
+      // Primer build: CoSE agrupa componentes desconectados (huérfanos/
+      // faltantes) en una grilla propia, lejos del componente principal,
+      // y la física no alcanza a reintegrarlos. Reusamos la misma
+      // estrategia radial acotada del reingreso solo para ese subconjunto,
+      // sin tocar lo que CoSE ya resolvió del componente principal.
+      if (isFirstBuild && rootId) {
+        const radialPositions = buildRadialPositions(wikiGraph.nodes, filteredEdges, rootId);
+        const components = cy.elements().components();
+        const mainComponent = components.find((comp) => !comp.nodes(`#${rootId}`).empty());
+        const disconnectedNodes = mainComponent ? cy.nodes().not(mainComponent.nodes()) : cy.collection();
+        disconnectedNodes.forEach((n) => {
+          const pos = radialPositions.get(n.id());
+          if (pos) n.position(pos);
+        });
+      }
 
       if (isFirstBuild || !graphViewportRef.current) {
         applyInitialGraphViewport(cy);
@@ -126,6 +146,33 @@ export function useWikiGraphLifecycle({
       });
       simulationRef.current = simulation;
       syncSimulationActivity();
+
+      // Solo en el primer montaje: el episodio de física a alpha=1.0 reacomoda
+      // el grafo respecto al fit ya aplicado arriba. Re-centramos una sola vez
+      // cuando la física cruza el mismo umbral que usa el motor para pasar a
+      // modo ambient, salvo que el usuario ya haya intervenido (drag de nodo).
+      if (isFirstBuild) {
+        let hasRequestedSecondConvergence = false;
+        const watchInitialSettle = () => {
+          if (userInteractedDuringSettle) {
+            initialSettleRafId = null;
+            return;
+          }
+          if (alphaRef.current <= PHYSICS_ALPHA_THRESHOLD) {
+            if (!hasRequestedSecondConvergence) {
+              hasRequestedSecondConvergence = true;
+              centerGraph(cy, alphaRef);
+              initialSettleRafId = requestAnimationFrame(watchInitialSettle);
+              return;
+            }
+            applyInitialGraphViewport(cy);
+            initialSettleRafId = null;
+            return;
+          }
+          initialSettleRafId = requestAnimationFrame(watchInitialSettle);
+        };
+        initialSettleRafId = requestAnimationFrame(watchInitialSettle);
+      }
     };
 
     if (isFirstBuild) {
@@ -148,6 +195,7 @@ export function useWikiGraphLifecycle({
     cy.on("free", "node", (evt) => {
       velocitiesRef.current.set(evt.target.id(), { vx: 0, vy: 0 });
       alphaRef.current = Math.max(alphaRef.current, 0.8);
+      userInteractedDuringSettle = true;
     });
 
     bindGraphEvents(cy, {
@@ -172,6 +220,10 @@ export function useWikiGraphLifecycle({
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
+      }
+      if (initialSettleRafId !== null) {
+        cancelAnimationFrame(initialSettleRafId);
+        initialSettleRafId = null;
       }
       simulationRef.current = null;
 

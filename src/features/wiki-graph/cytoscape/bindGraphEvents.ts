@@ -6,13 +6,11 @@ export function bindGraphEvents(
   {
     notesRef,
     selectedNoteRef,
-    alphaRef,
     onNodeClick,
     onBackgroundClick,
   }: {
     notesRef: { current: MarkdownFile[] };
     selectedNoteRef: { current: MarkdownFile | null };
-    alphaRef: { current: number };
     onNodeClick: (note: MarkdownFile) => void;
     onBackgroundClick: () => void;
   }
@@ -20,7 +18,6 @@ export function bindGraphEvents(
   cy.on("mouseover", "node", (evt) => {
     const node = evt.target;
     node.addClass("nw-hovered");
-    alphaRef.current = Math.max(alphaRef.current, 0.25);
     if (!selectedNoteRef.current) {
       const nodeId = node.id();
       cy.edges().forEach((e) => {

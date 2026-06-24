@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import cytoscape from "cytoscape";
 import type { MarkdownFile } from "../../../domain/markdown/types";
 import type { WikiGraph } from "../types";
@@ -15,6 +15,7 @@ import { runCoseLayout } from "../layout/runCoseLayout";
 import { buildRadialPositions } from "../layout/buildRadialPositions";
 import { reconcileVelocities } from "../physics/reconcileVelocities";
 import { createGraphSimulation } from "../physics/createGraphSimulation";
+import type { GraphSimulationHandle } from "../physics/simulationTypes";
 
 interface UseWikiGraphLifecycleParams {
   graphReady: boolean;
@@ -51,6 +52,8 @@ export function useWikiGraphLifecycle({
   onNodeClick,
   onBackgroundClick,
 }: UseWikiGraphLifecycleParams): void {
+  const simulationRef = useRef<GraphSimulationHandle | null>(null);
+
   useEffect(() => {
     if (!graphReady || !wikiGraph || !graphContainerRef.current) return;
 
@@ -114,6 +117,7 @@ export function useWikiGraphLifecycle({
         rafRef,
       });
       simulation.start();
+      simulationRef.current = simulation;
     };
 
     if (isFirstBuild) {
@@ -141,17 +145,35 @@ export function useWikiGraphLifecycle({
     bindGraphEvents(cy, {
       notesRef,
       selectedNoteRef,
-      alphaRef,
       onNodeClick,
       onBackgroundClick,
     });
 
     cyRef.current = cy;
+
+    const syncSimulationActivity = () => {
+      if (document.visibilityState === "visible" && document.hasFocus()) {
+        simulationRef.current?.resume();
+      } else {
+        simulationRef.current?.pause();
+      }
+    };
+
+    document.addEventListener("visibilitychange", syncSimulationActivity);
+    window.addEventListener("blur", syncSimulationActivity);
+    window.addEventListener("focus", syncSimulationActivity);
+    syncSimulationActivity();
+
     return () => {
+      document.removeEventListener("visibilitychange", syncSimulationActivity);
+      window.removeEventListener("blur", syncSimulationActivity);
+      window.removeEventListener("focus", syncSimulationActivity);
+
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
+      simulationRef.current = null;
 
       // Capturar posiciones y viewport ANTES de destruir, mientras cy aún vive.
       const captured = captureGraphState(cy);

@@ -15,4 +15,6 @@ export interface EdgeLink {
 
 export interface GraphSimulationHandle {
   start(): void;
+  pause(): void;
+  resume(): void;
 }

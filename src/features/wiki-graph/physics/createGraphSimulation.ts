@@ -2,12 +2,15 @@ import type cytoscape from "cytoscape";
 import type { Velocity, EdgeLink, GraphSimulationHandle } from "./simulationTypes";
 
 /**
- * Mantiene el grafo vivo sin usar oscilaciones independientes por nodo.
+ * Mantiene el grafo vivo alternando dos regímenes:
  *
- * La energía continua se inyecta alterando de manera lenta y determinista
- * la longitud objetivo de cada enlace. Como cada cambio viaja a través de
- * resortes, repulsión y centro de masa, el movimiento permanece ligado a la
- * topología real del grafo.
+ * - Physics: motor de fuerzas completo (repulsión, resortes, centro de masa).
+ *   Corre solo mientras alpha está alto, por interacción real (carga, layout,
+ *   drag, Centrar, refresh). Decae de forma natural y tiene un tope de
+ *   duración para proteger vaults grandes.
+ * - Ambient: movimiento barato O(n) alrededor de un ancla por nodo, sin pares
+ *   ni integración de velocidad, así no acumula drift. Mantiene el grafo
+ *   "respirando" indefinidamente sin costo cuadrático.
  */
 export function createGraphSimulation({
   cy,
@@ -37,41 +40,61 @@ export function createGraphSimulation({
   const MAX_SPEED = 1.35;
   const LIMIT = 720;
 
-  // Energía mínima para que el grafo siga relajando su topología de forma
-  // sutil después de que alpha se enfría. No modifica alphaRef ni el ciclo
-  // de calentamiento que activan hover, drag o Centrar.
-  const LIVE_FORCE_ALPHA = 0.14;
-
-  // Cada enlace respira con una fase propia. Esto hace que los grupos se
-  // relajen como red conectada, no como nodos que oscilan por separado.
+  // Enlaces respiran con fase propia durante episodios de física completa.
   const LINK_BREATH_AMPLITUDE = 24;
   const LINK_BREATH_PERIOD_MS = 14_000;
   const TAU = Math.PI * 2;
 
-  const createEdgePhase = (edge: EdgeLink, index: number): number => {
+  // Umbral de alpha bajo el cual se abandona la física completa y se pasa a
+  // movimiento ambiental barato.
+  const PHYSICS_ALPHA_THRESHOLD = 0.04;
+  // Tope de duración de un episodio de física completa, para que vaults
+  // grandes con interacción sostenida no queden en O(n²) indefinidamente.
+  const MAX_PHYSICS_DURATION_MS = 6_000;
+  // Por encima de este número de nodos, se salta el bloque de repulsión/
+  // colisión por pares incluso durante un episodio de física.
+  const NODE_THRESHOLD_FULL_PHYSICS = 250;
+
+  // Ambient: frecuencia baja, amplitud chica, sin pares.
+  const AMBIENT_FPS = 12;
+  const AMBIENT_FRAME_INTERVAL_MS = 1000 / AMBIENT_FPS;
+  const AMBIENT_AMPLITUDE = 6;
+  const AMBIENT_PERIOD_MS = 9_000;
+
+  const reducedMotion =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const createPhase = (si: number, ti: number, index: number): number => {
     // Hash determinista: sin Math.random y estable entre ejecuciones.
     const hash = (
-      Math.imul(edge.si + 1, 73_856_093) ^
-      Math.imul(edge.ti + 1, 19_349_663) ^
+      Math.imul(si + 1, 73_856_093) ^
+      Math.imul(ti + 1, 19_349_663) ^
       Math.imul(index + 1, 83_492_791)
     ) >>> 0;
 
     return (hash % 360) * (Math.PI / 180);
   };
 
-  const edgePhases = edgeLinks.map(createEdgePhase);
+  const edgePhases = edgeLinks.map((edge, index) => createPhase(edge.si, edge.ti, index));
+  const nodePhases = nodeArr.map((_, index) => createPhase(index, index, index));
 
-  const simulate = () => {
-    rafRef.current = requestAnimationFrame(simulate);
+  const anchors = new Map<string, { x: number; y: number }>();
+  let wasAbovePhysicsThreshold = true;
+  let physicsEpisodeStart: number | null = null;
+  let lastAmbientTick = 0;
 
-    const alpha = alphaRef.current;
+  const snapshotAnchors = () => {
+    for (const node of nodeArr) {
+      const pos = node.position();
+      anchors.set(node.id(), { x: pos.x, y: pos.y });
+    }
+  };
+
+  const stepPhysics = (alpha: number) => {
     const count = nodeArr.length;
-    if (alpha < 0.01 || count === 0) return;
-
-    // La física conserva alpha para sus picos de interacción, pero mantiene
-    // una energía base leve que evita que una topología ya equilibrada quede
-    // visualmente congelada.
-    const forceAlpha = Math.max(alpha, LIVE_FORCE_ALPHA);
+    const forceAlpha = alpha;
 
     const px = new Float32Array(count);
     const py = new Float32Array(count);
@@ -117,32 +140,35 @@ export function createGraphSimulation({
       forceY[i] += (0 - py[i]) * ROOT_CENTER_K * forceAlpha;
     }
 
-    // Repulsión y colisión: mantiene espacio entre nodos cercanos.
-    for (let i = 0; i < count; i++) {
-      for (let j = i + 1; j < count; j++) {
-        const dx = px[i] - px[j];
-        const dy = py[i] - py[j];
-        const distSq = dx * dx + dy * dy;
-        if (distSq < 0.0001) continue;
+    // Repulsión y colisión: solo si el grafo no es demasiado grande, para
+    // mantener acotado el costo O(n²) durante episodios de física.
+    if (count <= NODE_THRESHOLD_FULL_PHYSICS) {
+      for (let i = 0; i < count; i++) {
+        for (let j = i + 1; j < count; j++) {
+          const dx = px[i] - px[j];
+          const dy = py[i] - py[j];
+          const distSq = dx * dx + dy * dy;
+          if (distSq < 0.0001) continue;
 
-        const dist = Math.sqrt(distSq);
-        const nx = dx / dist;
-        const ny = dy / dist;
+          const dist = Math.sqrt(distSq);
+          const nx = dx / dist;
+          const ny = dy / dist;
 
-        if (dist < 200) {
-          const repelForce = (REPEL / distSq) * forceAlpha;
-          forceX[i] += nx * repelForce;
-          forceY[i] += ny * repelForce;
-          forceX[j] -= nx * repelForce;
-          forceY[j] -= ny * repelForce;
-        }
+          if (dist < 200) {
+            const repelForce = (REPEL / distSq) * forceAlpha;
+            forceX[i] += nx * repelForce;
+            forceY[i] += ny * repelForce;
+            forceX[j] -= nx * repelForce;
+            forceY[j] -= ny * repelForce;
+          }
 
-        if (dist < MIN_DIST) {
-          const collisionForce = (MIN_DIST - dist) * 0.5 * forceAlpha;
-          forceX[i] += nx * collisionForce;
-          forceY[i] += ny * collisionForce;
-          forceX[j] -= nx * collisionForce;
-          forceY[j] -= ny * collisionForce;
+          if (dist < MIN_DIST) {
+            const collisionForce = (MIN_DIST - dist) * 0.5 * forceAlpha;
+            forceX[i] += nx * collisionForce;
+            forceY[i] += ny * collisionForce;
+            forceX[j] -= nx * collisionForce;
+            forceY[j] -= ny * collisionForce;
+          }
         }
       }
     }
@@ -196,14 +222,85 @@ export function createGraphSimulation({
       velocities.set(id, { vx, vy });
       nodeArr[i].position({ x: nextX, y: nextY });
     }
+  };
 
-    // Conserva la semántica de alpha existente para refresh, hover y drag.
-    alphaRef.current = Math.max(0.01, alpha * 0.988);
+  const stepAmbient = (now: number) => {
+    if (reducedMotion) return;
+    if (now - lastAmbientTick < AMBIENT_FRAME_INTERVAL_MS) return;
+    lastAmbientTick = now;
+
+    const clock = (now / AMBIENT_PERIOD_MS) * TAU;
+
+    for (let i = 0; i < nodeArr.length; i++) {
+      const node = nodeArr[i];
+      if (node.grabbed()) continue;
+
+      const anchor = anchors.get(node.id());
+      if (!anchor) continue;
+
+      const phase = nodePhases[i];
+      const ox = Math.sin(clock + phase) * AMBIENT_AMPLITUDE;
+      const oy = Math.cos(clock + phase * 1.3) * AMBIENT_AMPLITUDE;
+      node.position({ x: anchor.x + ox, y: anchor.y + oy });
+    }
+  };
+
+  const simulate = () => {
+    rafRef.current = requestAnimationFrame(simulate);
+
+    const now = performance.now();
+    const alpha = alphaRef.current;
+    const count = nodeArr.length;
+    if (count === 0) return;
+
+    const abovePhysicsThreshold = alpha > PHYSICS_ALPHA_THRESHOLD;
+
+    if (abovePhysicsThreshold) {
+      if (!wasAbovePhysicsThreshold || physicsEpisodeStart === null) {
+        physicsEpisodeStart = now;
+      }
+
+      if (now - physicsEpisodeStart > MAX_PHYSICS_DURATION_MS) {
+        // Tope de seguridad: corta el episodio aunque siga llegando energía.
+        alphaRef.current = PHYSICS_ALPHA_THRESHOLD * 0.5;
+        wasAbovePhysicsThreshold = false;
+        snapshotAnchors();
+        stepAmbient(now);
+        return;
+      }
+
+      stepPhysics(alpha);
+      alphaRef.current = alpha * 0.988;
+      wasAbovePhysicsThreshold = true;
+      return;
+    }
+
+    if (wasAbovePhysicsThreshold) {
+      // Transición física → ambient: la posición actual (incluida post-drag)
+      // se vuelve el ancla.
+      snapshotAnchors();
+    }
+    wasAbovePhysicsThreshold = false;
+    physicsEpisodeStart = null;
+
+    stepAmbient(now);
   };
 
   return {
     start() {
+      if (rafRef.current !== null) return;
       rafRef.current = requestAnimationFrame(simulate);
+    },
+    pause() {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    },
+    resume() {
+      if (rafRef.current === null) {
+        rafRef.current = requestAnimationFrame(simulate);
+      }
     },
   };
 }

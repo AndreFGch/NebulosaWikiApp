@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -21,6 +20,7 @@ import { listMarkdownFiles, readMarkdownFile, createMarkdownFile, updateMarkdown
 import { searchMarkdownContent, type ContentSearchResult } from "./shared/tauri/searchApi";
 import { getWikiRoot, setWikiRoot as setWikiRootCommand } from "./shared/tauri/settingsApi";
 import { importMarkdownFile, exportMarkdownFile, exportWiki, backupWiki } from "./shared/tauri/transferApi";
+import { deleteMarkdownFile } from "./shared/tauri/deleteApi";
 
 type DetailMode = "preview" | "raw" | "edit";
 type MainView = "home" | "graph";
@@ -690,7 +690,7 @@ function App() {
     setDeleteDeleting(true);
     setDeleteError(null);
     try {
-      await invoke("delete_markdown_file", { relativePath: selectedNote.relativePath });
+      await deleteMarkdownFile(selectedNote.relativePath);
       const files = await listMarkdownFiles();
       setNotes(files);
       setSelectedNote(null);

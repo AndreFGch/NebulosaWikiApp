@@ -3,6 +3,11 @@ import cytoscape from "cytoscape";
 import type { MarkdownFile } from "../../../domain/markdown/types";
 import type { WikiGraph } from "../types";
 import { buildGraphElements } from "../cytoscape/buildGraphElements";
+import { WikiGraphStore } from "../domain";
+import { createLogicalGraphSnapshot } from "../indexing";
+import { createGraphProjection } from "../projection";
+import { createVisualGraph } from "../visual";
+import { createCytoscapeElements } from "../renderer/cytoscape";
 import { GRAPH_STYLE } from "../cytoscape/graphStyle";
 import { bindGraphEvents } from "../cytoscape/bindGraphEvents";
 import { captureGraphState } from "../cytoscape/captureGraphState";
@@ -64,11 +69,27 @@ export function useWikiGraphLifecycle({
     let initialSettleRafId: number | null = null;
     let userInteractedDuringSettle = false;
 
-    const { elements, rootId, filteredEdges } = buildGraphElements(wikiGraph);
+    const { rootId: legacyRootId, filteredEdges } = buildGraphElements(wikiGraph);
+
+    const snapshot = createLogicalGraphSnapshot(wikiGraph);
+    const store = new WikiGraphStore(snapshot);
+
+    const visibleNodeTypes = Array.from(
+      new Set(store.getNodes().map((node) => node.type)),
+    );
+
+    const projection = createGraphProjection(store, {
+      mode: "global",
+      focusNodeId: null,
+      visibleNodeTypes,
+    });
+
+    const visualGraph = createVisualGraph(store, projection);
+    const { elements } = createCytoscapeElements(visualGraph);
 
     const cy = cytoscape({
       container: graphContainerRef.current,
-      elements,
+      elements: [...elements],
       style: GRAPH_STYLE,
       userPanningEnabled: true,
       userZoomingEnabled: true,
@@ -87,21 +108,21 @@ export function useWikiGraphLifecycle({
     };
 
     const handleLayoutStop = () => {
-      if (rootId) {
-        const rootEl = cy.nodes(`#${rootId}`);
+      if (legacyRootId) {
+        const rootEl = cy.nodes(`#${legacyRootId}`);
         if (!rootEl.empty()) rootEl.addClass("nw-root");
       }
-      rootIdRef.current = rootId;
+      rootIdRef.current = legacyRootId;
 
       // Primer build: CoSE agrupa componentes desconectados (huérfanos/
       // faltantes) en una grilla propia, lejos del componente principal,
       // y la física no alcanza a reintegrarlos. Reusamos la misma
       // estrategia radial acotada del reingreso solo para ese subconjunto,
       // sin tocar lo que CoSE ya resolvió del componente principal.
-      if (isFirstBuild && rootId) {
-        const radialPositions = buildRadialPositions(wikiGraph.nodes, filteredEdges, rootId);
+      if (isFirstBuild && legacyRootId) {
+        const radialPositions = buildRadialPositions(wikiGraph.nodes, filteredEdges, legacyRootId);
         const components = cy.elements().components();
-        const mainComponent = components.find((comp) => !comp.nodes(`#${rootId}`).empty());
+        const mainComponent = components.find((comp) => !comp.nodes(`#${legacyRootId}`).empty());
         const disconnectedNodes = mainComponent ? cy.nodes().not(mainComponent.nodes()) : cy.collection();
         disconnectedNodes.forEach((n) => {
           const pos = radialPositions.get(n.id());
@@ -178,7 +199,7 @@ export function useWikiGraphLifecycle({
     if (isFirstBuild) {
       runCoseLayout(cy, handleLayoutStop);
     } else {
-      const positionMap = buildRadialPositions(wikiGraph.nodes, filteredEdges, rootId);
+      const positionMap = buildRadialPositions(wikiGraph.nodes, filteredEdges, legacyRootId);
       mergeSavedNodePositions(positionMap, savedPositions, wikiGraph.nodes.map((node) => node.id));
 
       const layoutRun = cy.layout({

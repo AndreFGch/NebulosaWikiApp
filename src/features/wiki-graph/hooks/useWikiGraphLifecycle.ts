@@ -2,7 +2,6 @@ import { useEffect, useRef, type RefObject } from "react";
 import cytoscape from "cytoscape";
 import type { MarkdownFile } from "../../../domain/markdown/types";
 import type { WikiGraph } from "../types";
-import { buildGraphElements } from "../cytoscape/buildGraphElements";
 import { WikiGraphStore } from "../domain";
 import { createLogicalGraphSnapshot } from "../indexing";
 import { createGraphProjection } from "../projection";
@@ -68,8 +67,6 @@ export function useWikiGraphLifecycle({
     let initialSettleRafId: number | null = null;
     let userInteractedDuringSettle = false;
 
-    const { rootId: legacyRootId } = buildGraphElements(wikiGraph);
-
     const snapshot = createLogicalGraphSnapshot(wikiGraph);
     const store = new WikiGraphStore(snapshot);
 
@@ -104,7 +101,7 @@ export function useWikiGraphLifecycle({
       initialEdgeLinks.push({ si, ti });
     }
 
-    const initialRootNodeId = visualGraph.rootNodeId ?? legacyRootId;
+    const initialRootNodeId = visualGraph.rootNodeId;
 
     const { elements } = createCytoscapeElements(visualGraph);
 
@@ -129,11 +126,11 @@ export function useWikiGraphLifecycle({
     };
 
     const handleLayoutStop = () => {
-      if (legacyRootId) {
-        const rootEl = cy.nodes(`#${legacyRootId}`);
+      if (initialRootNodeId) {
+        const rootEl = cy.nodes(`#${initialRootNodeId}`);
         if (!rootEl.empty()) rootEl.addClass("nw-root");
       }
-      rootIdRef.current = legacyRootId;
+      rootIdRef.current = initialRootNodeId;
 
       if (isFirstBuild || !graphViewportRef.current) {
         applyInitialGraphViewport(cy);

@@ -198,7 +198,7 @@ export default function WikiGraphView({
   }, [visibleGraphTypes, graphReady, graphViewMode, selectedNote]);
 
   const handleCenterGraph = () => {
-    if (cyRef.current) centerGraph(cyRef.current, alphaRef);
+    if (cyRef.current) centerGraph(cyRef.current);
   };
 
   const graphTypeLabels = useMemo(() => GRAPH_TYPE_LABELS, []);

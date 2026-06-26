@@ -189,7 +189,7 @@ export function useWikiGraphLifecycle({
           if (alphaRef.current <= PHYSICS_ALPHA_THRESHOLD) {
             if (!hasRequestedSecondConvergence) {
               hasRequestedSecondConvergence = true;
-              centerGraph(cy, alphaRef);
+              centerGraph(cy);
               initialSettleRafId = requestAnimationFrame(watchInitialSettle);
               return;
             }

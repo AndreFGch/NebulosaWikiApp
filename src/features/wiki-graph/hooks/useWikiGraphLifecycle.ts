@@ -12,7 +12,6 @@ import { GRAPH_STYLE } from "../cytoscape/graphStyle";
 import { bindGraphEvents } from "../cytoscape/bindGraphEvents";
 import { captureGraphState } from "../cytoscape/captureGraphState";
 import {
-  mergeSavedNodePositions,
   applyInitialGraphViewport,
   restoreGraphViewport,
 } from "../cytoscape/restoreGraphState";
@@ -225,8 +224,6 @@ export function useWikiGraphLifecycle({
         initialRootNodeId,
         savedPositions,
       );
-      mergeSavedNodePositions(positionMap, savedPositions, wikiGraph.nodes.map((node) => node.id));
-
       cy.nodes().forEach((node) => {
         node.position(
           positionMap.get(node.id()) ?? { x: 0, y: 0 },

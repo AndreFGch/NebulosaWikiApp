@@ -16,8 +16,8 @@ import {
   applyInitialGraphViewport,
   restoreGraphViewport,
 } from "../cytoscape/restoreGraphState";
-import { buildRadialPositions } from "../layout/buildRadialPositions";
 import { createInitialSettledPositions } from "../physics/createInitialSettledPositions";
+import { createRebuildSettledPositions } from "../physics/createRebuildSettledPositions";
 import type { PhysicsEdgeLink } from "../physics/physicalGraphTypes";
 import { reconcileVelocities } from "../physics/reconcileVelocities";
 import { createGraphSimulation, PHYSICS_ALPHA_THRESHOLD } from "../physics/createGraphSimulation";
@@ -69,7 +69,7 @@ export function useWikiGraphLifecycle({
     let initialSettleRafId: number | null = null;
     let userInteractedDuringSettle = false;
 
-    const { rootId: legacyRootId, filteredEdges } = buildGraphElements(wikiGraph);
+    const { rootId: legacyRootId } = buildGraphElements(wikiGraph);
 
     const snapshot = createLogicalGraphSnapshot(wikiGraph);
     const store = new WikiGraphStore(snapshot);
@@ -174,10 +174,9 @@ export function useWikiGraphLifecycle({
       simulationRef.current = simulation;
       syncSimulationActivity();
 
-      // Solo en el primer montaje: el episodio de física a alpha=1.0 reacomoda
-      // el grafo respecto al fit ya aplicado arriba. Re-centramos una sola vez
-      // cuando la física cruza el mismo umbral que usa el motor para pasar a
-      // modo ambient, salvo que el usuario ya haya intervenido (drag de nodo).
+      // Solo en el primer montaje: esperamos a que la breve transición física
+      // inicial alcance el mismo umbral que usa el motor para pasar a modo
+      // ambient. Reencuadramos una sola vez, salvo interacción del usuario.
       if (isFirstBuild) {
         const watchInitialSettle = () => {
           if (userInteractedDuringSettle) {
@@ -220,7 +219,12 @@ export function useWikiGraphLifecycle({
       layoutRun.on("layoutstop", handleLayoutStop);
       layoutRun.run();
     } else {
-      const positionMap = buildRadialPositions(wikiGraph.nodes, filteredEdges, legacyRootId);
+      const positionMap = createRebuildSettledPositions(
+        initialNodeIds,
+        initialEdgeLinks,
+        initialRootNodeId,
+        savedPositions,
+      );
       mergeSavedNodePositions(positionMap, savedPositions, wikiGraph.nodes.map((node) => node.id));
 
       const layoutRun = cy.layout({

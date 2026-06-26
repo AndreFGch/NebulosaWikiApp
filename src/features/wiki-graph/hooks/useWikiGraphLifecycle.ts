@@ -17,8 +17,9 @@ import {
   restoreGraphViewport,
 } from "../cytoscape/restoreGraphState";
 import { centerGraph } from "../cytoscape/centerGraph";
-import { runCoseLayout } from "../layout/runCoseLayout";
 import { buildRadialPositions } from "../layout/buildRadialPositions";
+import { createInitialSettledPositions } from "../physics/createInitialSettledPositions";
+import type { PhysicsEdgeLink } from "../physics/physicalGraphTypes";
 import { reconcileVelocities } from "../physics/reconcileVelocities";
 import { createGraphSimulation, PHYSICS_ALPHA_THRESHOLD } from "../physics/createGraphSimulation";
 import type { GraphSimulationHandle } from "../physics/simulationTypes";
@@ -85,6 +86,28 @@ export function useWikiGraphLifecycle({
     });
 
     const visualGraph = createVisualGraph(store, projection);
+
+    const initialNodeIds = visualGraph.nodes.map((node) => node.id);
+
+    const initialNodeIndexById = new Map(
+      initialNodeIds.map((nodeId, index) => [nodeId, index]),
+    );
+
+    const initialEdgeLinks: PhysicsEdgeLink[] = [];
+
+    for (const edge of visualGraph.edges) {
+      const si = initialNodeIndexById.get(edge.source);
+      const ti = initialNodeIndexById.get(edge.target);
+
+      if (si === undefined || ti === undefined) {
+        continue;
+      }
+
+      initialEdgeLinks.push({ si, ti });
+    }
+
+    const initialRootNodeId = visualGraph.rootNodeId ?? legacyRootId;
+
     const { elements } = createCytoscapeElements(visualGraph);
 
     const cy = cytoscape({
@@ -113,22 +136,6 @@ export function useWikiGraphLifecycle({
         if (!rootEl.empty()) rootEl.addClass("nw-root");
       }
       rootIdRef.current = legacyRootId;
-
-      // Primer build: CoSE agrupa componentes desconectados (huérfanos/
-      // faltantes) en una grilla propia, lejos del componente principal,
-      // y la física no alcanza a reintegrarlos. Reusamos la misma
-      // estrategia radial acotada del reingreso solo para ese subconjunto,
-      // sin tocar lo que CoSE ya resolvió del componente principal.
-      if (isFirstBuild && legacyRootId) {
-        const radialPositions = buildRadialPositions(wikiGraph.nodes, filteredEdges, legacyRootId);
-        const components = cy.elements().components();
-        const mainComponent = components.find((comp) => !comp.nodes(`#${legacyRootId}`).empty());
-        const disconnectedNodes = mainComponent ? cy.nodes().not(mainComponent.nodes()) : cy.collection();
-        disconnectedNodes.forEach((n) => {
-          const pos = radialPositions.get(n.id());
-          if (pos) n.position(pos);
-        });
-      }
 
       if (isFirstBuild || !graphViewportRef.current) {
         applyInitialGraphViewport(cy);
@@ -197,7 +204,26 @@ export function useWikiGraphLifecycle({
     };
 
     if (isFirstBuild) {
-      runCoseLayout(cy, handleLayoutStop);
+      const settledPositions = createInitialSettledPositions(
+        initialNodeIds,
+        initialEdgeLinks,
+        initialRootNodeId,
+      );
+
+      cy.nodes().forEach((node) => {
+        node.position(
+          settledPositions.get(node.id()) ?? { x: 0, y: 0 },
+        );
+      });
+
+      const layoutRun = cy.layout({
+        name: "preset",
+        fit: false,
+        padding: 70,
+      });
+
+      layoutRun.on("layoutstop", handleLayoutStop);
+      layoutRun.run();
     } else {
       const positionMap = buildRadialPositions(wikiGraph.nodes, filteredEdges, legacyRootId);
       mergeSavedNodePositions(positionMap, savedPositions, wikiGraph.nodes.map((node) => node.id));

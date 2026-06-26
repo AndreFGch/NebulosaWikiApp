@@ -1,5 +1,9 @@
 import type { Velocity, ReconcileVelocitiesResult } from "./simulationTypes";
 
+// First mount receives pre-settled positions from createInitialSettledPositions;
+// full physics energy (1.0) would undo that work, so we start near ambient.
+const INITIAL_SETTLED_MOUNT_ALPHA = 0.05;
+
 export function reconcileVelocities(
   velocities: Map<string, Velocity>,
   nodeIds: readonly string[],
@@ -8,7 +12,7 @@ export function reconcileVelocities(
   if (isFirstBuild) {
     velocities.clear();
     nodeIds.forEach((id) => { velocities.set(id, { vx: 0, vy: 0 }); });
-    return { alpha: 1.0, hasNewNodes: false };
+    return { alpha: INITIAL_SETTLED_MOUNT_ALPHA, hasNewNodes: false };
   }
 
   const currentIds = new Set(nodeIds);

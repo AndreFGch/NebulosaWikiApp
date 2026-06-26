@@ -16,7 +16,6 @@ import {
   applyInitialGraphViewport,
   restoreGraphViewport,
 } from "../cytoscape/restoreGraphState";
-import { centerGraph } from "../cytoscape/centerGraph";
 import { buildRadialPositions } from "../layout/buildRadialPositions";
 import { createInitialSettledPositions } from "../physics/createInitialSettledPositions";
 import type { PhysicsEdgeLink } from "../physics/physicalGraphTypes";
@@ -180,25 +179,21 @@ export function useWikiGraphLifecycle({
       // cuando la física cruza el mismo umbral que usa el motor para pasar a
       // modo ambient, salvo que el usuario ya haya intervenido (drag de nodo).
       if (isFirstBuild) {
-        let hasRequestedSecondConvergence = false;
         const watchInitialSettle = () => {
           if (userInteractedDuringSettle) {
             initialSettleRafId = null;
             return;
           }
+
           if (alphaRef.current <= PHYSICS_ALPHA_THRESHOLD) {
-            if (!hasRequestedSecondConvergence) {
-              hasRequestedSecondConvergence = true;
-              centerGraph(cy);
-              initialSettleRafId = requestAnimationFrame(watchInitialSettle);
-              return;
-            }
             applyInitialGraphViewport(cy);
             initialSettleRafId = null;
             return;
           }
+
           initialSettleRafId = requestAnimationFrame(watchInitialSettle);
         };
+
         initialSettleRafId = requestAnimationFrame(watchInitialSettle);
       }
     };

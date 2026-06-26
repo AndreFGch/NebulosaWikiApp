@@ -227,12 +227,17 @@ export function useWikiGraphLifecycle({
       );
       mergeSavedNodePositions(positionMap, savedPositions, wikiGraph.nodes.map((node) => node.id));
 
+      cy.nodes().forEach((node) => {
+        node.position(
+          positionMap.get(node.id()) ?? { x: 0, y: 0 },
+        );
+      });
+
       const layoutRun = cy.layout({
         name: "preset",
-        positions: (node: any) => positionMap.get(node.id()) ?? { x: 0, y: 0 },
         fit: false,
         padding: 70,
-      } as unknown as cytoscape.LayoutOptions);
+      });
 
       layoutRun.on("layoutstop", handleLayoutStop);
       layoutRun.run();

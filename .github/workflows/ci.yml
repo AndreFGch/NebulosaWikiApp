@@ -17,6 +17,7 @@ jobs:
           node-version: 24.15.0
           cache: npm
       - run: npm ci
+      - run: npm test
       - run: npx tsc --noEmit
       - run: npx vite build
 

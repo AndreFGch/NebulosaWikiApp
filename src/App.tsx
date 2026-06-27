@@ -6,6 +6,9 @@ import { getGraphHealth } from "./features/wiki-graph/model/getGraphHealth";
 import type { WikiNode, WikiGraph } from "./features/wiki-graph/types";
 import type { MarkdownFile } from "./domain/markdown/types";
 import { normalizeKey } from "./domain/markdown/normalizeKey";
+import { stripFrontmatter, preprocessWikilinks, findNoteByWikilink } from "./domain/markdown/wikilinkUtils";
+import { slugify, buildNoteTemplateContent, TEMPLATE_FOLDER_MAP, WIKI_FOLDERS } from "./features/markdown/noteTemplates";
+import type { NoteTemplate } from "./features/markdown/noteTemplates";
 import { listMarkdownFiles, readMarkdownFile, createMarkdownFile, updateMarkdownFile } from "./shared/tauri/vaultApi";
 import { searchMarkdownContent, type ContentSearchResult } from "./shared/tauri/searchApi";
 import { getWikiRoot, setWikiRoot as setWikiRootCommand } from "./shared/tauri/settingsApi";
@@ -17,70 +20,8 @@ const WikiGraphView = lazy(() => import("./features/wiki-graph/components/WikiGr
 
 type DetailMode = "preview" | "raw" | "edit";
 type MainView = "home" | "graph";
-type NoteTemplate = "simple" | "project" | "source" | "skill" | "session" | "index";
 type ToastKind = "success" | "error" | "info";
 interface ToastMessage { id: number; kind: ToastKind; message: string; }
-
-function stripFrontmatter(content: string): string {
-  if (!content.startsWith("---\n") && !content.startsWith("---\r\n")) return content;
-  const closeIdx = content.indexOf("\n---", 4);
-  if (closeIdx === -1) return content;
-  return content.slice(closeIdx + 4).replace(/^[\n\r]+/, "");
-}
-
-function preprocessWikilinks(content: string): string {
-  return content
-    .replace(/\[\[([^\]|\n]+)\|([^\]\n]+)\]\]/g, (_, name, alias) =>
-      `[${alias.trim()}](#wikilink/${encodeURIComponent(name.trim())})`
-    )
-    .replace(/\[\[([^\]\n]+)\]\]/g, (_, name) =>
-      `[${name.trim()}](#wikilink/${encodeURIComponent(name.trim())})`
-    );
-}
-
-function findNoteByWikilink(link: string, notes: MarkdownFile[]): MarkdownFile | null {
-  const nk = normalizeKey(link);
-  for (const note of notes) {
-    if (normalizeKey(note.title) === nk) return note;
-    const fname = note.relativePath.replace(/\.md$/i, "").split(/[/\\]/).pop() ?? "";
-    if (normalizeKey(fname) === nk) return note;
-  }
-  return null;
-}
-
-function slugify(text: string): string {
-  return text
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
-const TEMPLATE_FOLDER_MAP: Record<NoteTemplate, string> = {
-  simple: "notes", project: "projects", source: "sources",
-  skill: "skills", session: "sessions", index: "indexes",
-};
-
-function buildNoteTemplateContent(template: NoteTemplate, title: string, date: string): string {
-  switch (template) {
-    case "project":
-      return `---\ntipo: project\ntitulo: ${title}\nfecha: ${date}\ntags:\n  - proyecto\n  - nebulosa\nestado: activo\n---\n\n# ${title}\n\n## Objetivo\n\n- \n\n## Estado actual\n\n- \n\n## Pendientes\n\n- \n\n## Decisiones\n\n- \n\n## Enlaces\n\n- \n`;
-    case "source":
-      return `---\ntipo: source\ntitulo: ${title}\nfecha: ${date}\ntags:\n  - fuente\n  - nebulosa\nurl:\nautor:\n---\n\n# ${title}\n\n## Resumen\n\n- \n\n## Ideas clave\n\n- \n\n## Citas / notas\n\n- \n\n## Relacionado\n\n- \n`;
-    case "skill":
-      return `---\ntipo: skill\ntitulo: ${title}\nfecha: ${date}\ntags:\n  - skill\n  - nebulosa\n---\n\n# ${title}\n\n## Propósito\n\n- \n\n## Cuándo usarla\n\n- \n\n## Reglas\n\n- \n\n## Ejemplos\n\n- \n`;
-    case "session":
-      return `---\ntipo: session\ntitulo: ${title}\nfecha: ${date}\ntags:\n  - session\n  - nebulosa\n---\n\n# ${title}\n\n## Contexto\n\n- \n\n## Trabajo realizado\n\n- \n\n## Decisiones\n\n- \n\n## Pendientes\n\n- \n\n## Próximo paso\n\n- \n`;
-    case "index":
-      return `---\ntipo: index\ntitulo: ${title}\nfecha: ${date}\ntags:\n  - index\n  - nebulosa\n---\n\n# ${title}\n\n## Mapa\n\n- \n\n## Proyectos\n\n- \n\n## Notas\n\n- \n\n## Fuentes\n\n- \n\n## Skills\n\n- \n`;
-    default:
-      return `---\ntipo: note\ntitulo: ${title}\nfecha: ${date}\ntags:\n  - nebulosa\n---\n\n# ${title}\n\n- \n`;
-  }
-}
 
 function App() {
   const [notes, setNotes] = useState<MarkdownFile[]>([]);
@@ -1538,7 +1479,7 @@ function App() {
                   value={importTargetFolder}
                   onChange={e => setImportTargetFolder(e.target.value)}
                 >
-                  {["notes","projects","sources","sessions","skills","indexes"].map(f => (
+                  {WIKI_FOLDERS.map(f => (
                     <option key={f} value={f}>{f}</option>
                   ))}
                 </select>
@@ -1656,7 +1597,7 @@ function App() {
                   value={newNoteFolder}
                   onChange={e => setNewNoteFolder(e.target.value)}
                 >
-                  {["notes","projects","sources","sessions","skills","indexes"].map(f => (
+                  {WIKI_FOLDERS.map(f => (
                     <option key={f} value={f}>{f}</option>
                   ))}
                 </select>

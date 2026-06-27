@@ -241,6 +241,24 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [detailMode, selectedNote, editSaving, handleSave]);
 
+  const openCreatedNote = useCallback(async (relativePath: string, content: string, toastMessage: string) => {
+    const files = await listMarkdownFiles();
+    setNotes(files);
+    const created = files.find(f => f.relativePath === relativePath);
+    if (created) {
+      setSelectedNote(created);
+      setIsDetailOpen(true);
+      setNoteContent(content);
+      setContentLoading(false);
+      setContentError(null);
+      setDetailMode("edit");
+      setEditContent(content);
+      setEditError(null);
+    }
+    requestGraphRefresh();
+    showToast("success", toastMessage);
+  }, [showToast, requestGraphRefresh]);
+
   const openNewNoteModal = useCallback(() => {
     setNewNoteTemplate("simple");
     setNewNoteTitle("");
@@ -261,31 +279,17 @@ function App() {
     setNewNoteError(null);
     try {
       await createMarkdownFile(relativePath, content);
-      const files = await listMarkdownFiles();
-      setNotes(files);
-      const created = files.find(f => f.relativePath === relativePath);
-      if (created) {
-        setSelectedNote(created);
-        setIsDetailOpen(true);
-        setNoteContent(content);
-        setContentLoading(false);
-        setContentError(null);
-        setDetailMode("edit");
-        setEditContent(content);
-        setEditError(null);
-      }
-      requestGraphRefresh();
+      await openCreatedNote(relativePath, content, "Nota creada");
       setShowNewNoteModal(false);
       setNewNoteTemplate("simple");
       setNewNoteTitle("");
       setNewNoteFolder("notes");
-      showToast("success", "Nota creada");
     } catch (err) {
       setNewNoteError(String(err));
     } finally {
       setNewNoteCreating(false);
     }
-  }, [newNoteTitle, newNoteFolder, newNoteTemplate, showToast, requestGraphRefresh]);
+  }, [newNoteTitle, newNoteFolder, newNoteTemplate, openCreatedNote]);
 
   const handleCreateMissingNote = useCallback(async (label: string) => {
     const slug = slugify(label);
@@ -297,27 +301,13 @@ function App() {
     setRelationActionError(null);
     try {
       await createMarkdownFile(relativePath, content);
-      const files = await listMarkdownFiles();
-      setNotes(files);
-      const created = files.find(f => f.relativePath === relativePath);
-      if (created) {
-        setSelectedNote(created);
-        setIsDetailOpen(true);
-        setNoteContent(content);
-        setContentLoading(false);
-        setContentError(null);
-        setDetailMode("edit");
-        setEditContent(content);
-        setEditError(null);
-      }
-      requestGraphRefresh();
-      showToast("success", "Nota creada desde enlace roto");
+      await openCreatedNote(relativePath, content, "Nota creada desde enlace roto");
     } catch (err) {
       setRelationActionError(String(err));
     } finally {
       setCreatingMissingLink(null);
     }
-  }, [showToast, requestGraphRefresh]);
+  }, [openCreatedNote]);
 
   const handleCreateDailyNote = useCallback(async () => {
     const now = new Date();
@@ -327,21 +317,7 @@ function App() {
     const content = `---\ntipo: session\ntitulo: ${title}\nfecha: ${date}\ntags:\n  - nebulosa\n  - diario\n---\n\n# ${title}\n\n## Pendientes\n\n- \n\n## Notas\n\n- \n\n## Enlaces\n\n- \n`;
     try {
       await createMarkdownFile(relativePath, content);
-      const files = await listMarkdownFiles();
-      setNotes(files);
-      const created = files.find(f => f.relativePath === relativePath);
-      if (created) {
-        setSelectedNote(created);
-        setIsDetailOpen(true);
-        setNoteContent(content);
-        setContentLoading(false);
-        setContentError(null);
-        setDetailMode("edit");
-        setEditContent(content);
-        setEditError(null);
-      }
-      requestGraphRefresh();
-      showToast("success", "Nota diaria creada");
+      await openCreatedNote(relativePath, content, "Nota diaria creada");
     } catch {
       const files = await listMarkdownFiles();
       setNotes(files);
@@ -354,7 +330,7 @@ function App() {
         showToast("info", "Nota diaria abierta");
       }
     }
-  }, [showToast, requestGraphRefresh]);
+  }, [openCreatedNote, showToast, requestGraphRefresh]);
 
   const handleCreateQuickNote = useCallback(async () => {
     const now = new Date();
@@ -374,22 +350,8 @@ function App() {
         return;
       }
     }
-    const files = await listMarkdownFiles();
-    setNotes(files);
-    const created = files.find(f => f.relativePath === relativePath);
-    if (created) {
-      setSelectedNote(created);
-      setIsDetailOpen(true);
-      setNoteContent(content);
-      setContentLoading(false);
-      setContentError(null);
-      setDetailMode("edit");
-      setEditContent(content);
-      setEditError(null);
-    }
-    requestGraphRefresh();
-    showToast("success", "Nota rápida creada");
-  }, [showToast, requestGraphRefresh]);
+    await openCreatedNote(relativePath, content, "Nota rápida creada");
+  }, [openCreatedNote]);
 
   const openImportModal = useCallback(() => {
     setImportSourcePath("");

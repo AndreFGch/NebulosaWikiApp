@@ -132,7 +132,7 @@ export function createGraphProjectionDelta(
   const addedEdges: LogicalEdge[]    = [];
   const updatedEdges: LogicalEdge[]  = [];
   const removedEdgeIdSet             = new Set<GraphEdgeId>();
-  const affectedIds                  = new Set<GraphNodeId>();
+  const affectedIds = new Set<GraphNodeId>(logicalDelta.affectedNodeIds.map((id) => asNodeId(id)),);
 
   // ── 1. Added nodes ────────────────────────────────────────────────────────
   for (const wn of logicalDelta.addedNodes) {

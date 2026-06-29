@@ -288,14 +288,25 @@ describe("createGraphProjectionDelta — case 4: new edge with hidden endpoint",
     const projAfter  = createGraphProjection(storeAfter, baseContext);
 
     const delta: WikiGraphDelta = {
-      ...emptyDelta(),
-      addedNodes: [wikiNode("sessions/S", "sessions", "session")],
-      addedEdges: [weAS],
-      topologyChanged: true,
-    };
+        ...emptyDelta(),
+        addedNodes: [wikiNode("sessions/S", "sessions", "session")],
+        addedEdges: [weAS],
+        topologyChanged: true,
+        affectedNodeIds: ["notes/A", "sessions/S"],
+};
     const projDelta = createGraphProjectionDelta(makeBaseProjection(), delta, baseContext, baseContext);
 
     expect(projDelta.kind).toBe("incremental");
+
+    if (projDelta.kind !== "incremental") return;
+
+    expect(projDelta.affectedNodeIds).toEqual(
+      expect.arrayContaining([
+        asNodeId("notes/A"),
+        asNodeId("sessions/S"),
+      ]),
+    );
+
     const applied = applyProjectionDelta(makeBaseProjection(), projDelta);
 
     expect(canonicalProjection(applied)).toEqual(canonicalProjection(projAfter));

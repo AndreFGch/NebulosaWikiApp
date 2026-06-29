@@ -1,8 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { MarkdownFile } from "../../domain/markdown/types";
+import { sortMarkdownFilesByRelativePath } from "../../domain/markdown/relativePathOrder";
 
-export function listMarkdownFiles(): Promise<MarkdownFile[]> {
-  return invoke<MarkdownFile[]>("list_markdown_files");
+export async function listMarkdownFiles(): Promise<MarkdownFile[]> {
+  const files = await invoke<MarkdownFile[]>("list_markdown_files");
+  return sortMarkdownFilesByRelativePath(files);
 }
 
 export function readMarkdownFile(relativePath: string): Promise<string> {

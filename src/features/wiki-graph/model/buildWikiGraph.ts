@@ -2,11 +2,11 @@ import type { MarkdownFile } from "../../../domain/markdown/types";
 import { normalizeKey } from "../../../domain/markdown/normalizeKey";
 import type { WikiGraph, WikiNode, WikiEdge } from "../types";
 
-function sanitizeId(s: string): string {
+export function sanitizeId(s: string): string {
   return s.replace(/[^a-zA-Z0-9]/g, "_");
 }
 
-function extractFrontmatterTitle(rawContent: string): string | null {
+export function extractFrontmatterTitle(rawContent: string): string | null {
   if (!rawContent.startsWith("---\n") && !rawContent.startsWith("---\r\n")) return null;
   const closeIdx = rawContent.indexOf("\n---", 4);
   if (closeIdx === -1) return null;
@@ -15,7 +15,7 @@ function extractFrontmatterTitle(rawContent: string): string | null {
   return m ? m[1].trim().replace(/^['"]|['"]$/g, "") : null;
 }
 
-function getNoteTypeFromFolder(folder: string): string {
+export function getNoteTypeFromFolder(folder: string): string {
   const top = folder.split("/")[0].toLowerCase();
   const known = ["notes", "projects", "sources", "skills", "sessions", "indexes", "inbox", "templates"];
   return known.includes(top) ? top : "notes";
@@ -29,7 +29,7 @@ function stripInlineCode(content: string): string {
   return content.replace(/`[^`\n]+`/g, " ");
 }
 
-function extractTags(rawContent: string): string[] {
+export function extractTags(rawContent: string): string[] {
   if (!rawContent.startsWith("---\n") && !rawContent.startsWith("---\r\n")) return [];
   const closeIdx = rawContent.indexOf("\n---", 4);
   if (closeIdx === -1) return [];
@@ -51,7 +51,7 @@ function extractTags(rawContent: string): string[] {
   return [];
 }
 
-function extractWikilinks(content: string): string[] {
+export function extractWikilinks(content: string): string[] {
   const cleaned = stripInlineCode(stripCodeBlocks(content));
   const links: string[] = [];
   const re = /\[\[([^\]|\n]+?)(?:\|[^\]\n]*)?\]\]/g;
@@ -191,5 +191,3 @@ export function buildWikiGraph(notes: MarkdownFile[], contentMap: Map<string, st
     folders: Array.from(allFolders).sort(),
   };
 }
-
-export { sanitizeId };

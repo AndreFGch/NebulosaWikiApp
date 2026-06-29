@@ -2,15 +2,32 @@ import type { GraphNodeId, LogicalNode, LogicalEdge } from "../domain";
 import { WikiGraphStore } from "../domain";
 import type { GraphProjectionOptions, GraphProjection } from "./graphProjectionTypes";
 
-function isIndexNode(node: LogicalNode): boolean {
+export function isProjectionIndexNode(node: LogicalNode): boolean {
   return node.type === "indexes" || node.folder === "indexes";
+}
+
+export function isProjectionNodeVisible(node: LogicalNode, typeSet: ReadonlySet<string>): boolean {
+  return typeSet.has(node.type);
+}
+
+export function isProjectionEdgeVisible(
+  edge: LogicalEdge,
+  visibleNodeIds: ReadonlySet<GraphNodeId>,
+  nodeById: ReadonlyMap<GraphNodeId, LogicalNode>,
+): boolean {
+  if (!visibleNodeIds.has(edge.source) || !visibleNodeIds.has(edge.target)) return false;
+  const src = nodeById.get(edge.source);
+  const tgt = nodeById.get(edge.target);
+  if (src !== undefined && isProjectionIndexNode(src)) return false;
+  if (tgt !== undefined && isProjectionIndexNode(tgt)) return false;
+  return true;
 }
 
 function edgeTouchesIndex(edge: LogicalEdge, store: WikiGraphStore): boolean {
   const src = store.getNode(edge.source);
   const tgt = store.getNode(edge.target);
-  if (src !== undefined && isIndexNode(src)) return true;
-  if (tgt !== undefined && isIndexNode(tgt)) return true;
+  if (src !== undefined && isProjectionIndexNode(src)) return true;
+  if (tgt !== undefined && isProjectionIndexNode(tgt)) return true;
   return false;
 }
 
@@ -20,7 +37,7 @@ function buildGlobal(
 ): { nodes: ReadonlyArray<LogicalNode>; edges: ReadonlyArray<LogicalEdge> } {
   const typeSet = new Set(options.visibleNodeTypes);
 
-  const nodes = store.getNodes().filter((n) => typeSet.has(n.type));
+  const nodes = store.getNodes().filter((n) => isProjectionNodeVisible(n, typeSet));
   const nodeIdSet = new Set(nodes.map((n) => n.id));
 
   const edges = store.getEdges().filter((e) => {
@@ -89,7 +106,7 @@ export function createGraphProjection(
   const visibleNodes: LogicalNode[] = [];
   for (const nodeId of candidateIds) {
     const node = store.getNode(nodeId);
-    if (node !== undefined && typeSet.has(node.type)) {
+    if (node !== undefined && isProjectionNodeVisible(node, typeSet)) {
       visibleNodes.push(node);
     }
   }

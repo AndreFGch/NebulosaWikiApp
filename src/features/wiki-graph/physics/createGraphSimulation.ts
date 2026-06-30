@@ -1,5 +1,5 @@
 import type cytoscape from "cytoscape";
-import type { Velocity, EdgeLink, GraphSimulationHandle } from "./simulationTypes";
+import type { Velocity, SimulationEdgeLink, SimulationTopologyUpdate, GraphSimulationHandle } from "./simulationTypes";
 
 // Umbral de alpha bajo el cual se abandona la física completa y se pasa a
 // movimiento ambiental barato. Exportado para que el lifecycle pueda
@@ -19,15 +19,15 @@ export const PHYSICS_ALPHA_THRESHOLD = 0.04;
  */
 export function createGraphSimulation({
   cy,
-  nodeArr,
-  edgeLinks,
+  nodeArr: initialNodeArr,
+  edgeLinks: initialEdgeLinks,
   velocities,
   alphaRef,
   rafRef,
 }: {
   cy: cytoscape.Core;
   nodeArr: cytoscape.NodeSingular[];
-  edgeLinks: EdgeLink[];
+  edgeLinks: SimulationEdgeLink[];
   velocities: Map<string, Velocity>;
   alphaRef: { current: number };
   rafRef: { current: number | null };
@@ -68,19 +68,22 @@ export function createGraphSimulation({
     typeof window.matchMedia === "function" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const createPhase = (si: number, ti: number, index: number): number => {
-    // Hash determinista: sin Math.random y estable entre ejecuciones.
-    const hash = (
-      Math.imul(si + 1, 73_856_093) ^
-      Math.imul(ti + 1, 19_349_663) ^
-      Math.imul(index + 1, 83_492_791)
-    ) >>> 0;
-
-    return (hash % 360) * (Math.PI / 180);
+  const hashStr = (s: string): number => {
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) >>> 0;
+    return h;
   };
+  const phaseFromKey = (key: string): number => (hashStr(key) % 360) * (Math.PI / 180);
 
-  const edgePhases = edgeLinks.map((edge, index) => createPhase(edge.si, edge.ti, index));
-  const nodePhases = nodeArr.map((_, index) => createPhase(index, index, index));
+  // Referencias mutables de topología — actualizadas por updateTopology sin recrear el RAF.
+  let _nodeArr: cytoscape.NodeSingular[] = initialNodeArr.slice();
+  let _edgeLinks: SimulationEdgeLink[] = initialEdgeLinks.slice();
+
+  const nodePhaseMap = new Map<string, number>();
+  for (const node of _nodeArr) nodePhaseMap.set(node.id(), phaseFromKey(node.id()));
+
+  const edgePhaseMap = new Map<string, number>();
+  for (const edge of _edgeLinks) edgePhaseMap.set(edge.key, phaseFromKey(edge.key));
 
   const anchors = new Map<string, { x: number; y: number }>();
   let wasAbovePhysicsThreshold = true;
@@ -88,14 +91,14 @@ export function createGraphSimulation({
   let lastAmbientTick = 0;
 
   const snapshotAnchors = () => {
-    for (const node of nodeArr) {
+    for (const node of _nodeArr) {
       const pos = node.position();
       anchors.set(node.id(), { x: pos.x, y: pos.y });
     }
   };
 
   const stepPhysics = (alpha: number) => {
-    const count = nodeArr.length;
+    const count = _nodeArr.length;
     const forceAlpha = alpha;
 
     const px = new Float32Array(count);
@@ -106,10 +109,10 @@ export function createGraphSimulation({
     let freeCount = 0;
 
     for (let i = 0; i < count; i++) {
-      const pos = nodeArr[i].position();
+      const pos = _nodeArr[i].position();
       px[i] = pos.x;
       py[i] = pos.y;
-      grabbed[i] = nodeArr[i].grabbed() ? 1 : 0;
+      grabbed[i] = _nodeArr[i].grabbed() ? 1 : 0;
 
       if (!grabbed[i]) {
         sumX += pos.x;
@@ -136,7 +139,7 @@ export function createGraphSimulation({
     // El nodo raíz funciona como ancla, pero no queda fijado artificialmente.
     for (let i = 0; i < count; i++) {
       if (grabbed[i]) continue;
-      if (!nodeArr[i].hasClass("nw-root")) continue;
+      if (!_nodeArr[i].hasClass("nw-root")) continue;
 
       forceX[i] += (0 - px[i]) * ROOT_CENTER_K * forceAlpha;
       forceY[i] += (0 - py[i]) * ROOT_CENTER_K * forceAlpha;
@@ -179,13 +182,13 @@ export function createGraphSimulation({
     // distintas por enlace: la topología se relaja y respira en conjunto.
     const linkClock = (performance.now() / LINK_BREATH_PERIOD_MS) * TAU;
 
-    for (let edgeIndex = 0; edgeIndex < edgeLinks.length; edgeIndex++) {
-      const { si, ti } = edgeLinks[edgeIndex];
+    for (let edgeIndex = 0; edgeIndex < _edgeLinks.length; edgeIndex++) {
+      const { si, ti, key } = _edgeLinks[edgeIndex];
       const dx = px[ti] - px[si];
       const dy = py[ti] - py[si];
       const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
       const targetDistance = LINK_DIST + (
-        Math.sin(linkClock + edgePhases[edgeIndex]) * LINK_BREATH_AMPLITUDE
+        Math.sin(linkClock + (edgePhaseMap.get(key) ?? 0)) * LINK_BREATH_AMPLITUDE
       );
       const springForce = (dist - targetDistance) * LINK_K * forceAlpha;
       const nx = dx / dist;
@@ -201,7 +204,7 @@ export function createGraphSimulation({
     for (let i = 0; i < count; i++) {
       if (grabbed[i]) continue;
 
-      const id = nodeArr[i].id();
+      const id = _nodeArr[i].id();
       const velocity = velocities.get(id) ?? { vx: 0, vy: 0 };
       let vx = (velocity.vx + forceX[i]) * DAMP;
       let vy = (velocity.vy + forceY[i]) * DAMP;
@@ -221,8 +224,12 @@ export function createGraphSimulation({
       if (nextY > LIMIT) { nextY = LIMIT; vy = 0; }
       if (nextY < -LIMIT) { nextY = -LIMIT; vy = 0; }
 
+
+      if (!Number.isFinite(nextX) || !Number.isFinite(nextY) || !Number.isFinite(vx) || !Number.isFinite(vy)) {
+        continue;
+      }
       velocities.set(id, { vx, vy });
-      nodeArr[i].position({ x: nextX, y: nextY });
+      _nodeArr[i].position({ x: nextX, y: nextY });
     }
   };
 
@@ -233,14 +240,13 @@ export function createGraphSimulation({
 
     const clock = (now / AMBIENT_PERIOD_MS) * TAU;
 
-    for (let i = 0; i < nodeArr.length; i++) {
-      const node = nodeArr[i];
+    for (const node of _nodeArr) {
       if (node.grabbed()) continue;
 
       const anchor = anchors.get(node.id());
       if (!anchor) continue;
 
-      const phase = nodePhases[i];
+      const phase = nodePhaseMap.get(node.id()) ?? 0;
       const ox = Math.sin(clock + phase) * AMBIENT_AMPLITUDE;
       const oy = Math.cos(clock + phase * 1.3) * AMBIENT_AMPLITUDE;
       node.position({ x: anchor.x + ox, y: anchor.y + oy });
@@ -252,7 +258,7 @@ export function createGraphSimulation({
 
     const now = performance.now();
     const alpha = alphaRef.current;
-    const count = nodeArr.length;
+    const count = _nodeArr.length;
     if (count === 0) return;
 
     const abovePhysicsThreshold = alpha > PHYSICS_ALPHA_THRESHOLD;
@@ -303,6 +309,43 @@ export function createGraphSimulation({
       if (rafRef.current === null) {
         rafRef.current = requestAnimationFrame(simulate);
       }
+    },
+    updateTopology({ nodeArr: newNodeArr, edgeLinks: newEdgeLinks }: SimulationTopologyUpdate): void {
+      const oldNodeIds = new Set(_nodeArr.map((n) => n.id()));
+      const newNodeIds = new Set(newNodeArr.map((n) => n.id()));
+
+      // Purgar nodos eliminados de anchors, velocities y fases.
+      for (const id of oldNodeIds) {
+        if (!newNodeIds.has(id)) {
+          anchors.delete(id);
+          velocities.delete(id);
+          nodePhaseMap.delete(id);
+        }
+      }
+
+      // Inicializar nodos nuevos: fase y anchor desde posición actual en cy.
+      for (const node of newNodeArr) {
+        const id = node.id();
+        if (!oldNodeIds.has(id)) {
+          nodePhaseMap.set(id, phaseFromKey(id));
+          const pos = node.position();
+          anchors.set(id, { x: pos.x, y: pos.y });
+        }
+      }
+
+      // Purgar fases de aristas eliminadas.
+      const newEdgeKeySet = new Set(newEdgeLinks.map((e) => e.key));
+      for (const key of [...edgePhaseMap.keys()]) {
+        if (!newEdgeKeySet.has(key)) edgePhaseMap.delete(key);
+      }
+
+      // Inicializar fases de aristas nuevas.
+      for (const edge of newEdgeLinks) {
+        if (!edgePhaseMap.has(edge.key)) edgePhaseMap.set(edge.key, phaseFromKey(edge.key));
+      }
+
+      _nodeArr = newNodeArr.slice();
+      _edgeLinks = Array.from(newEdgeLinks);
     },
   };
 }

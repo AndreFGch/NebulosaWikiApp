@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type cytoscape from "cytoscape";
 import type { MarkdownFile } from "../../../domain/markdown/types";
 import type { WikiGraph } from "../types";
+import type { GraphRuntimeUpdate } from "../runtime/runtimeUpdateTypes";
 import { sanitizeId } from "../model/buildWikiGraph";
 import { centerGraph } from "../cytoscape/centerGraph";
 import { useWikiGraphLifecycle } from "../hooks/useWikiGraphLifecycle";
@@ -35,6 +36,7 @@ interface WikiGraphViewProps {
   alphaRef: RefObject<number>;
   rootIdRef: RefObject<string | null>;
   hasInitializedGraphRef: RefObject<boolean>;
+  runtimeUpdate: GraphRuntimeUpdate | null;
 }
 
 export default function WikiGraphView({

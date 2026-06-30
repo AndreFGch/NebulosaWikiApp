@@ -1,7 +1,10 @@
 import { useEffect, useState, useRef, useCallback, useMemo, lazy, Suspense } from "react";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import "./App.css";
-import { buildWikiGraph, sanitizeId } from "./features/wiki-graph/model/buildWikiGraph";
+import { buildWikiGraph, sanitizeId, getNoteTypeFromFolder } from "./features/wiki-graph/model/buildWikiGraph";
+import { GraphRuntimeUpdateProducer } from "./features/wiki-graph/runtime/GraphRuntimeUpdateProducer";
+import type { GraphRuntimeUpdate } from "./features/wiki-graph/runtime/runtimeUpdateTypes";
+import type { GraphProjectionOptions } from "./features/wiki-graph/projection";
 import { getGraphHealth } from "./features/wiki-graph/model/getGraphHealth";
 import type { WikiNode, WikiGraph } from "./features/wiki-graph/types";
 import type { MarkdownFile } from "./domain/markdown/types";
@@ -45,6 +48,9 @@ function App() {
   const [editContent, setEditContent] = useState<string>("");
   const [editError, setEditError] = useState<string | null>(null);
   const [editSaving, setEditSaving] = useState(false);
+
+  const runtimeUpdateProducerRef = useRef(new GraphRuntimeUpdateProducer());
+  const [runtimeUpdate, setRuntimeUpdate] = useState<GraphRuntimeUpdate | null>(null);
 
   const [wikiGraph, setWikiGraph] = useState<WikiGraph | null>(null);
   const [graphLoading, setGraphLoading] = useState(false);
@@ -584,6 +590,22 @@ function App() {
       const contentMap = new Map<string, string>(pairs);
       const graph = buildWikiGraph(notes, contentMap);
       setWikiGraph(graph);
+      const runtimeProjectionOptions: GraphProjectionOptions = {
+        mode: "global",
+        focusNodeId: null,
+        visibleNodeTypes: Array.from(
+          new Set([
+            ...notes.map((note) => getNoteTypeFromFolder(note.folder)),
+            "missing",
+          ]),
+        ),
+      };
+      const update = runtimeUpdateProducerRef.current.hydrate(
+        notes,
+        contentMap,
+        runtimeProjectionOptions,
+      );
+      setRuntimeUpdate(update);
       setGraphReady(true);
       setGraphLoading(false);
       graphBuildBusyRef.current = false;
@@ -1019,6 +1041,7 @@ function App() {
               alphaRef={alphaRef}
               rootIdRef={rootIdRef}
               hasInitializedGraphRef={hasInitializedGraphRef}
+              runtimeUpdate={runtimeUpdate}
             />
           </Suspense>
         )}

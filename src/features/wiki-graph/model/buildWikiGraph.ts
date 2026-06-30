@@ -62,6 +62,10 @@ export function extractWikilinks(content: string): string[] {
   return links;
 }
 
+function createStableEdgeId(sourceId: string, targetId: string): string {
+  return `edge_${sourceId.length}_${sourceId}_${targetId.length}_${targetId}`;
+}
+
 export function buildWikiGraph(notes: MarkdownFile[], contentMap: Map<string, string>): WikiGraph {
   const index = new Map<string, MarkdownFile>();
 
@@ -113,7 +117,6 @@ export function buildWikiGraph(notes: MarkdownFile[], contentMap: Map<string, st
 
   const seenEdges = new Set<string>();
   const edges: WikiEdge[] = [];
-  let edgeCounter = 0;
 
   notes.forEach((n) => {
     const raw = contentMap.get(n.relativePath) ?? "";
@@ -155,7 +158,7 @@ export function buildWikiGraph(notes: MarkdownFile[], contentMap: Map<string, st
       }
 
       edges.push({
-        id: `e${edgeCounter++}`,
+        id: createStableEdgeId(sourceId, targetId),
         source: sourceId,
         target: targetId,
         label: link,

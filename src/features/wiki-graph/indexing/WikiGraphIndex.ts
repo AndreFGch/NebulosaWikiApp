@@ -2,6 +2,7 @@ import type { MarkdownFile } from "../../../domain/markdown/types";
 import { normalizeKey } from "../../../domain/markdown/normalizeKey";
 import { compareRelativePath } from "../../../domain/markdown/relativePathOrder";
 import type { WikiGraph, WikiNode, WikiEdge } from "../types";
+import type { GraphNodeId } from "../domain";
 import {
   sanitizeId,
   extractWikilinks,
@@ -93,8 +94,9 @@ export class WikiGraphIndex {
   /** normKey → todas las fuentes que tienen un wikilink con esa clave normalizada. */
   readonly sourcesByLinkKey      = new Map<string, Set<string>>();
 
-  private _edges       = new Map<string, InternalEdge>();
-  private _edgeCounter = 0;
+  private _edges           = new Map<string, InternalEdge>();
+  private _edgeCounter     = 0;
+  private _relPathByNodeId = new Map<string, string>();
 
   // ── Utilería básica ────────────────────────────────────────────────────────
 
@@ -544,6 +546,7 @@ export class WikiGraphIndex {
     this.sourcesByLinkKey.clear();
     this._edges.clear();
     this._edgeCounter = 0;
+    this._relPathByNodeId.clear();
   }
 
   // ── API pública ────────────────────────────────────────────────────────────
@@ -567,6 +570,7 @@ export class WikiGraphIndex {
         aliasKeys,
         rawLinks,
       });
+      this._relPathByNodeId.set(sanitizeId(note.relativePath), note.relativePath);
       for (const key of aliasKeys) this._registerAlias(note.relativePath, key);
       this._registerSourceLinks(note.relativePath, rawLinks);
     }
@@ -657,6 +661,7 @@ export class WikiGraphIndex {
       aliasKeys: newAliasKeys,
       rawLinks: newRawLinks,
     });
+    this._relPathByNodeId.set(sanitizeId(relPath), relPath);
 
     // ── 4. Reconciliar aristas salientes de esta nota ──────────────────
     this._reconcileOutgoingForSource(relPath, delta, affectedReal, missingBefore, explicitIds);
@@ -729,6 +734,7 @@ export class WikiGraphIndex {
 
     // ── 3. Eliminar entrada ANTES de reconciliar ───────────────────────
     this.entriesByPath.delete(relativePath);
+    this._relPathByNodeId.delete(sanitizeId(relativePath));
     const removedId = sanitizeId(relativePath);
     delta.removedNodeIds.push(removedId);
     explicitIds.add(removedId);
@@ -796,5 +802,21 @@ export class WikiGraphIndex {
       tags: Array.from(allTags).sort(),
       folders: Array.from(allFolders).sort(),
     };
+  }
+
+  getConnectionCount(nodeId: GraphNodeId): number {
+    const relPath = this._relPathByNodeId.get(nodeId);
+    if (relPath !== undefined) {
+      return (this.outgoingBySource.get(relPath)?.size ?? 0) +
+             (this.incomingByTarget.get(relPath)?.size ?? 0);
+    }
+    // ponytail: O(M) scan for missing nodes; M = unique broken targets, typically small
+    for (const [tp, incoming] of this.incomingByTarget) {
+      if (tp.startsWith("__missing__/")) {
+        const normKey = tp.slice("__missing__/".length);
+        if (sanitizeId(`missing_${normKey}`) === (nodeId as string)) return incoming.size;
+      }
+    }
+    return 0;
   }
 }

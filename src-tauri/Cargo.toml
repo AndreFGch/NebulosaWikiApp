@@ -1,0 +1,9 @@
+[package]
+name = "nebulosa-wiki"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "nebulosa_wiki"
+path = "src/lib.rs"

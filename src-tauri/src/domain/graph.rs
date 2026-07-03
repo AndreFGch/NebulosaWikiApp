@@ -3,6 +3,7 @@
 //! Dominio agnóstico: sin Tauri, sin filesystem, sin Markdown, sin
 //! serialización, sin identificadores generados aleatoriamente.
 
+pub(crate) mod state;
 pub(crate) mod store;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -59,6 +60,17 @@ pub struct GraphRevision(u64);
 impl GraphRevision {
     pub(crate) fn new(value: u64) -> Self {
         Self(value)
+    }
+
+    /// Revisión inicial de un grafo recién creado.
+    pub(crate) fn initial() -> Self {
+        Self(0)
+    }
+
+    /// Siguiente revisión válida, o `None` si el contador está agotado.
+    /// No muta `self`: el llamador decide si publica el avance.
+    pub(crate) fn advance(self) -> Option<Self> {
+        self.0.checked_add(1).map(Self)
     }
 }
 

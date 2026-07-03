@@ -52,6 +52,18 @@ impl<TNodeMeta, TEdgeMeta> GraphState<TNodeMeta, TEdgeMeta> {
         self.store.incoming_edge_ids(node)
     }
 
+    /// IDs canónicos de nodos actualmente presentes. Orden no contractual
+    /// (delega en `GraphStore`, respaldado por `HashMap`).
+    pub(crate) fn node_ids(&self) -> impl Iterator<Item = NodeId> + '_ {
+        self.store.node_ids()
+    }
+
+    /// IDs canónicos de aristas actualmente presentes. Orden no contractual
+    /// (delega en `GraphStore`, respaldado por `HashMap`).
+    pub(crate) fn edge_ids(&self) -> impl Iterator<Item = EdgeId> + '_ {
+        self.store.edge_ids()
+    }
+
     pub(crate) fn snapshot(&self) -> GraphSnapshot<TNodeMeta, TEdgeMeta>
     where
         TNodeMeta: Clone,
@@ -265,6 +277,7 @@ fn empty_delta<TNodeMeta, TEdgeMeta>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     struct TestNodeMeta(&'static str);
@@ -581,5 +594,67 @@ mod tests {
 
         assert!(state.remove_edge(EdgeId::new(1)).unwrap().is_some());
         assert!(state.remove_node(NodeId::new(1)).unwrap().is_some());
+    }
+
+    #[test]
+    fn node_ids_and_edge_ids_reflect_accepted_mutations() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "a")).unwrap();
+        state.upsert_node(node(2, "b")).unwrap();
+        state.upsert_edge(edge(1, 1, 2, "a-b")).unwrap();
+        state.upsert_node(node(1, "a-v2")).unwrap(); // replace, no duplicate
+
+        let node_ids: HashSet<NodeId> = state.node_ids().collect();
+        let edge_ids: HashSet<EdgeId> = state.edge_ids().collect();
+        assert_eq!(node_ids, HashSet::from([NodeId::new(1), NodeId::new(2)]));
+        assert_eq!(edge_ids, HashSet::from([EdgeId::new(1)]));
+
+        state.remove_edge(EdgeId::new(1)).unwrap();
+        state.remove_node(NodeId::new(2)).unwrap();
+
+        let node_ids_after: HashSet<NodeId> = state.node_ids().collect();
+        let edge_ids_after: HashSet<EdgeId> = state.edge_ids().collect();
+        assert_eq!(node_ids_after, HashSet::from([NodeId::new(1)]));
+        assert_eq!(edge_ids_after, HashSet::new());
+    }
+
+    #[test]
+    fn enumerating_ids_does_not_change_revision() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "a")).unwrap();
+        let before = state.revision();
+
+        let _: Vec<NodeId> = state.node_ids().collect();
+        let _: Vec<EdgeId> = state.edge_ids().collect();
+
+        assert_eq!(state.revision(), before);
+    }
+
+    #[test]
+    fn node_ids_and_edge_ids_do_not_require_clonable_metadata() {
+        let mut state: GraphState<NonCloneMeta, NonCloneMeta> = GraphState::new(GraphId::new(1));
+        state
+            .upsert_node(GraphNode {
+                id: NodeId::new(1),
+                metadata: NonCloneMeta,
+            })
+            .unwrap();
+        state
+            .upsert_node(GraphNode {
+                id: NodeId::new(2),
+                metadata: NonCloneMeta,
+            })
+            .unwrap();
+        state
+            .upsert_edge(GraphEdge {
+                id: EdgeId::new(1),
+                from: NodeId::new(1),
+                to: NodeId::new(2),
+                metadata: NonCloneMeta,
+            })
+            .unwrap();
+
+        assert_eq!(state.node_ids().count(), 2);
+        assert_eq!(state.edge_ids().count(), 1);
     }
 }

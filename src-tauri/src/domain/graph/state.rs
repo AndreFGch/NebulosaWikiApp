@@ -4,7 +4,9 @@
 //! punto de este tramo que las posee y avanza.
 
 use super::store::{GraphStore, GraphStoreError};
-use super::{EdgeId, GraphEdge, GraphId, GraphNode, GraphRevision, GraphSnapshot, NodeId};
+use super::{
+    EdgeId, GraphDelta, GraphEdge, GraphId, GraphNode, GraphRevision, GraphSnapshot, NodeId,
+};
 
 /// Error cerrado de `GraphState`. Sin strings dinámicos, paths ni errores de SO.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,6 +125,140 @@ impl<TNodeMeta, TEdgeMeta> GraphState<TNodeMeta, TEdgeMeta> {
         let removed = self.store.remove_edge(id);
         self.revision = next;
         Ok(removed)
+    }
+
+    /// Igual que `upsert_node`, pero además arma el `GraphDelta` estructural
+    /// de la mutación aceptada (nodo nuevo vs. reemplazo).
+    pub(crate) fn upsert_node_with_delta(
+        &mut self,
+        node: GraphNode<TNodeMeta>,
+    ) -> Result<GraphDelta<TNodeMeta, TEdgeMeta>, GraphStateError>
+    where
+        TNodeMeta: Clone,
+    {
+        let next = self
+            .revision
+            .advance()
+            .ok_or(GraphStateError::RevisionExhausted)?;
+        let existed = self.store.node(node.id).is_some();
+        let from_revision = self.revision;
+        let inserted = node.clone();
+
+        self.store.upsert_node(node);
+        self.revision = next;
+
+        let mut delta = empty_delta(self.store.graph_id(), from_revision, next);
+        if existed {
+            delta.updated_nodes.push(inserted);
+        } else {
+            delta.added_nodes.push(inserted);
+        }
+        Ok(delta)
+    }
+
+    /// Igual que `upsert_edge`, pero además arma el `GraphDelta` estructural
+    /// de la mutación aceptada (arista nueva vs. reemplazo). Si el store
+    /// rechaza la arista, no se emite delta ni cambia revisión/topología.
+    pub(crate) fn upsert_edge_with_delta(
+        &mut self,
+        edge: GraphEdge<TEdgeMeta>,
+    ) -> Result<GraphDelta<TNodeMeta, TEdgeMeta>, GraphStateError>
+    where
+        TEdgeMeta: Clone,
+    {
+        let next = self
+            .revision
+            .advance()
+            .ok_or(GraphStateError::RevisionExhausted)?;
+        let existed = self.store.edge(edge.id).is_some();
+        let from_revision = self.revision;
+        let inserted = edge.clone();
+
+        self.store
+            .upsert_edge(edge)
+            .map_err(GraphStateError::Store)?;
+        self.revision = next;
+
+        let mut delta = empty_delta(self.store.graph_id(), from_revision, next);
+        if existed {
+            delta.updated_edges.push(inserted);
+        } else {
+            delta.added_edges.push(inserted);
+        }
+        Ok(delta)
+    }
+
+    /// Igual que `remove_node`, pero además arma el `GraphDelta` estructural:
+    /// el `NodeId` removido y las aristas incidentes eliminadas por cascada
+    /// (una self-loop aparece una sola vez).
+    pub(crate) fn remove_node_with_delta(
+        &mut self,
+        id: NodeId,
+    ) -> Result<Option<GraphDelta<TNodeMeta, TEdgeMeta>>, GraphStateError> {
+        if self.store.node(id).is_none() {
+            return Ok(None);
+        }
+        let next = self
+            .revision
+            .advance()
+            .ok_or(GraphStateError::RevisionExhausted)?;
+        let from_revision = self.revision;
+
+        let mut removed_edge_ids: Vec<EdgeId> = self.store.outgoing_edge_ids(id).collect();
+        for edge_id in self.store.incoming_edge_ids(id) {
+            if !removed_edge_ids.contains(&edge_id) {
+                removed_edge_ids.push(edge_id);
+            }
+        }
+
+        self.store.remove_node(id);
+        self.revision = next;
+
+        let mut delta = empty_delta(self.store.graph_id(), from_revision, next);
+        delta.removed_node_ids.push(id);
+        delta.removed_edge_ids = removed_edge_ids;
+        Ok(Some(delta))
+    }
+
+    /// Igual que `remove_edge`, pero además arma el `GraphDelta` estructural
+    /// con únicamente ese `EdgeId` en `removed_edge_ids`.
+    pub(crate) fn remove_edge_with_delta(
+        &mut self,
+        id: EdgeId,
+    ) -> Result<Option<GraphDelta<TNodeMeta, TEdgeMeta>>, GraphStateError> {
+        if self.store.edge(id).is_none() {
+            return Ok(None);
+        }
+        let next = self
+            .revision
+            .advance()
+            .ok_or(GraphStateError::RevisionExhausted)?;
+        let from_revision = self.revision;
+
+        self.store.remove_edge(id);
+        self.revision = next;
+
+        let mut delta = empty_delta(self.store.graph_id(), from_revision, next);
+        delta.removed_edge_ids.push(id);
+        Ok(Some(delta))
+    }
+}
+
+fn empty_delta<TNodeMeta, TEdgeMeta>(
+    graph_id: GraphId,
+    from_revision: GraphRevision,
+    to_revision: GraphRevision,
+) -> GraphDelta<TNodeMeta, TEdgeMeta> {
+    GraphDelta {
+        graph_id,
+        from_revision,
+        to_revision,
+        added_nodes: Vec::new(),
+        removed_node_ids: Vec::new(),
+        updated_nodes: Vec::new(),
+        added_edges: Vec::new(),
+        removed_edge_ids: Vec::new(),
+        updated_edges: Vec::new(),
     }
 }
 
@@ -281,5 +417,169 @@ mod tests {
         assert_eq!(result, Err(GraphStateError::RevisionExhausted));
         assert!(state.node(NodeId::new(1)).is_none());
         assert_eq!(state.revision, GraphRevision::new(u64::MAX));
+    }
+
+    #[test]
+    fn upsert_node_with_delta_reports_new_node_as_added() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+
+        let delta = state.upsert_node_with_delta(node(1, "a")).unwrap();
+
+        assert_eq!(delta.graph_id, GraphId::new(1));
+        assert_eq!(delta.from_revision, GraphRevision::initial());
+        assert_eq!(delta.to_revision, GraphRevision::new(1));
+        assert_eq!(delta.added_nodes, vec![node(1, "a")]);
+        assert!(delta.updated_nodes.is_empty());
+    }
+
+    #[test]
+    fn upsert_node_with_delta_reports_existing_node_id_as_updated() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "a")).unwrap();
+
+        let delta = state.upsert_node_with_delta(node(1, "b")).unwrap();
+
+        assert_eq!(delta.from_revision, GraphRevision::new(1));
+        assert_eq!(delta.to_revision, GraphRevision::new(2));
+        assert!(delta.added_nodes.is_empty());
+        assert_eq!(delta.updated_nodes, vec![node(1, "b")]);
+    }
+
+    #[test]
+    fn upsert_edge_with_delta_reports_new_edge_then_replacement_as_updated() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "a")).unwrap();
+        state.upsert_node(node(2, "b")).unwrap();
+
+        let added_delta = state.upsert_edge_with_delta(edge(1, 1, 2, "a-b")).unwrap();
+
+        assert_eq!(added_delta.from_revision, GraphRevision::new(2));
+        assert_eq!(added_delta.to_revision, GraphRevision::new(3));
+        assert_eq!(added_delta.added_edges, vec![edge(1, 1, 2, "a-b")]);
+        assert!(added_delta.updated_edges.is_empty());
+
+        let updated_delta = state
+            .upsert_edge_with_delta(edge(1, 1, 2, "a-b-v2"))
+            .unwrap();
+
+        assert_eq!(updated_delta.from_revision, GraphRevision::new(3));
+        assert_eq!(updated_delta.to_revision, GraphRevision::new(4));
+        assert!(updated_delta.added_edges.is_empty());
+        assert_eq!(updated_delta.updated_edges, vec![edge(1, 1, 2, "a-b-v2")]);
+    }
+
+    #[test]
+    fn upsert_edge_with_delta_rejects_invalid_edge_without_side_effects() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "a")).unwrap();
+        let before = state.revision();
+        let before_snapshot = state.snapshot();
+
+        let result = state.upsert_edge_with_delta(edge(1, 1, 2, "a-missing"));
+
+        assert_eq!(
+            result,
+            Err(GraphStateError::Store(GraphStoreError::MissingToNode(
+                NodeId::new(2)
+            )))
+        );
+        assert_eq!(state.revision(), before);
+        assert_eq!(state.snapshot(), before_snapshot);
+    }
+
+    #[test]
+    fn remove_node_with_delta_reports_missing_without_advancing_revision() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        let before = state.revision();
+
+        let result = state.remove_node_with_delta(NodeId::new(1));
+
+        assert_eq!(result.unwrap(), None);
+        assert_eq!(state.revision(), before);
+        assert!(state.node(NodeId::new(1)).is_none());
+    }
+
+    #[test]
+    fn remove_edge_with_delta_reports_missing_and_existing_edge() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "a")).unwrap();
+        state.upsert_node(node(2, "b")).unwrap();
+        state.upsert_edge(edge(1, 1, 2, "a-b")).unwrap();
+        let before = state.revision();
+
+        assert_eq!(state.remove_edge_with_delta(EdgeId::new(2)).unwrap(), None);
+        assert_eq!(state.revision(), before);
+
+        let delta = state
+            .remove_edge_with_delta(EdgeId::new(1))
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(delta.from_revision, before);
+        assert_eq!(delta.to_revision, GraphRevision::new(4));
+        assert_eq!(delta.removed_edge_ids, vec![EdgeId::new(1)]);
+        assert!(delta.added_nodes.is_empty());
+        assert!(delta.removed_node_ids.is_empty());
+        assert!(delta.updated_nodes.is_empty());
+        assert!(delta.added_edges.is_empty());
+        assert!(delta.updated_edges.is_empty());
+    }
+
+    #[test]
+    fn remove_node_with_delta_reports_node_and_all_incident_edges_once_each() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "a")).unwrap();
+        state.upsert_node(node(2, "b")).unwrap();
+        state.upsert_edge(edge(1, 1, 2, "out")).unwrap(); // saliente de 1
+        state.upsert_edge(edge(2, 2, 1, "in")).unwrap(); // entrante a 1
+        state.upsert_edge(edge(3, 1, 1, "self")).unwrap(); // self-loop en 1
+        let before = state.revision();
+
+        let delta = state
+            .remove_node_with_delta(NodeId::new(1))
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(delta.from_revision, before);
+        assert_eq!(delta.to_revision, GraphRevision::new(6));
+        assert_eq!(state.revision(), GraphRevision::new(6));
+        assert_eq!(delta.removed_node_ids, vec![NodeId::new(1)]);
+        assert_eq!(delta.removed_edge_ids.len(), 3);
+        assert!(delta.removed_edge_ids.contains(&EdgeId::new(1)));
+        assert!(delta.removed_edge_ids.contains(&EdgeId::new(2)));
+        assert!(delta.removed_edge_ids.contains(&EdgeId::new(3)));
+        assert!(delta.added_nodes.is_empty());
+        assert!(delta.updated_nodes.is_empty());
+        assert!(delta.added_edges.is_empty());
+        assert!(delta.updated_edges.is_empty());
+    }
+
+    #[test]
+    fn non_delta_apis_still_accept_non_clonable_metadata() {
+        let mut state: GraphState<NonCloneMeta, NonCloneMeta> = GraphState::new(GraphId::new(1));
+
+        state
+            .upsert_node(GraphNode {
+                id: NodeId::new(1),
+                metadata: NonCloneMeta,
+            })
+            .unwrap();
+        state
+            .upsert_node(GraphNode {
+                id: NodeId::new(2),
+                metadata: NonCloneMeta,
+            })
+            .unwrap();
+        state
+            .upsert_edge(GraphEdge {
+                id: EdgeId::new(1),
+                from: NodeId::new(1),
+                to: NodeId::new(2),
+                metadata: NonCloneMeta,
+            })
+            .unwrap();
+
+        assert!(state.remove_edge(EdgeId::new(1)).unwrap().is_some());
+        assert!(state.remove_node(NodeId::new(1)).unwrap().is_some());
     }
 }

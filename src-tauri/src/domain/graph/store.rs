@@ -3,7 +3,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use super::{EdgeId, GraphEdge, GraphId, GraphNode, NodeId};
+use super::{EdgeId, GraphEdge, GraphId, GraphNode, GraphRevision, GraphSnapshot, NodeId};
 
 /// Rechazo estructural al insertar una arista cuyos endpoints no existen
 /// en el store. Cerrado, puro: sin paths, strings dinámicos ni errores de SO.
@@ -120,6 +120,21 @@ impl<TNodeMeta, TEdgeMeta> GraphStore<TNodeMeta, TEdgeMeta> {
             .get(&node)
             .into_iter()
             .flat_map(|set| set.iter().copied())
+    }
+
+    /// Snapshot inmutable del contenido canónico actual. La `GraphRevision`
+    /// es responsabilidad del llamador: el store no la posee ni la incrementa.
+    pub(crate) fn snapshot(&self, revision: GraphRevision) -> GraphSnapshot<TNodeMeta, TEdgeMeta>
+    where
+        TNodeMeta: Clone,
+        TEdgeMeta: Clone,
+    {
+        GraphSnapshot {
+            graph_id: self.graph_id,
+            revision,
+            nodes: self.nodes.values().cloned().collect(),
+            edges: self.edges.values().cloned().collect(),
+        }
     }
 
     fn link(index: &mut HashMap<NodeId, HashSet<EdgeId>>, node: NodeId, edge: EdgeId) {
@@ -268,5 +283,64 @@ mod tests {
 
         let outgoing_b: Vec<EdgeId> = store.outgoing_edge_ids(NodeId::new(2)).collect();
         assert_eq!(outgoing_b, vec![EdgeId::new(4)]);
+    }
+
+    #[test]
+    fn snapshot_preserves_graph_id_and_caller_supplied_revision() {
+        let store = store();
+
+        let snapshot = store.snapshot(GraphRevision::new(5));
+
+        assert_eq!(snapshot.graph_id, GraphId::new(1));
+        assert_eq!(snapshot.revision, GraphRevision::new(5));
+    }
+
+    #[test]
+    fn snapshot_contains_currently_canonical_nodes_and_edges() {
+        let mut store = store();
+        store.upsert_node(node(1, "a"));
+        store.upsert_node(node(2, "b"));
+        store.upsert_edge(edge(1, 1, 2, "a-b")).unwrap();
+
+        let snapshot = store.snapshot(GraphRevision::new(1));
+
+        assert!(snapshot.nodes.iter().any(|n| n.id == NodeId::new(1)));
+        assert!(snapshot.nodes.iter().any(|n| n.id == NodeId::new(2)));
+        assert!(snapshot.edges.iter().any(|e| e.id == EdgeId::new(1)));
+        assert_eq!(snapshot.nodes.len(), 2);
+        assert_eq!(snapshot.edges.len(), 1);
+    }
+
+    #[test]
+    fn snapshot_is_independent_of_later_store_mutations() {
+        let mut store = store();
+        store.upsert_node(node(1, "a"));
+        store.upsert_node(node(2, "b"));
+        store.upsert_edge(edge(1, 1, 2, "a-b")).unwrap();
+
+        let snapshot = store.snapshot(GraphRevision::new(1));
+
+        store.remove_edge(EdgeId::new(1));
+        store.remove_node(NodeId::new(1));
+        store.upsert_node(node(3, "c"));
+
+        assert!(snapshot.nodes.iter().any(|n| n.id == NodeId::new(1)));
+        assert!(snapshot.nodes.iter().any(|n| n.id == NodeId::new(2)));
+        assert!(snapshot.edges.iter().any(|e| e.id == EdgeId::new(1)));
+        assert!(!snapshot.nodes.iter().any(|n| n.id == NodeId::new(3)));
+    }
+
+    struct NonCloneMeta;
+
+    #[test]
+    fn store_accepts_non_clonable_metadata_without_global_clone_bound() {
+        let mut store: GraphStore<NonCloneMeta, NonCloneMeta> = GraphStore::new(GraphId::new(1));
+
+        store.upsert_node(GraphNode {
+            id: NodeId::new(1),
+            metadata: NonCloneMeta,
+        });
+
+        assert!(store.node(NodeId::new(1)).is_some());
     }
 }

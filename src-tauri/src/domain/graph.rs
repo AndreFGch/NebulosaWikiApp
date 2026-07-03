@@ -3,6 +3,8 @@
 //! Dominio agnóstico: sin Tauri, sin filesystem, sin Markdown, sin
 //! serialización, sin identificadores generados aleatoriamente.
 
+pub(crate) mod store;
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct GraphId(u64);
 

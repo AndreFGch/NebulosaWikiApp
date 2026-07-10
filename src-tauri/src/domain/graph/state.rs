@@ -67,6 +67,49 @@ impl<TNodeMeta, TEdgeMeta> GraphState<TNodeMeta, TEdgeMeta> {
         self.store.edge_ids()
     }
 
+    /// Proyección local depth-1 alrededor de `center`: el centro, sus
+    /// vecinos directos (por aristas entrantes o salientes) y toda arista
+    /// canónica inducida por ese conjunto de nodos. `None` si `center` no
+    /// existe. No muta el estado ni cambia la revisión.
+    pub(crate) fn local_projection_depth_one(&self, center: NodeId) -> Option<GraphProjection> {
+        if self.store.node(center).is_none() {
+            return None;
+        }
+
+        let mut node_ids: HashSet<NodeId> = HashSet::new();
+        node_ids.insert(center);
+
+        let neighbor_edge_ids: HashSet<EdgeId> = self
+            .store
+            .outgoing_edge_ids(center)
+            .chain(self.store.incoming_edge_ids(center))
+            .collect();
+        for edge_id in &neighbor_edge_ids {
+            if let Some(e) = self.store.edge(*edge_id) {
+                node_ids.insert(e.from);
+                node_ids.insert(e.to);
+            }
+        }
+
+        let mut edge_ids: HashSet<EdgeId> = HashSet::new();
+        for node_id in &node_ids {
+            for edge_id in self.store.outgoing_edge_ids(*node_id) {
+                if let Some(e) = self.store.edge(edge_id) {
+                    if node_ids.contains(&e.to) {
+                        edge_ids.insert(edge_id);
+                    }
+                }
+            }
+        }
+
+        Some(GraphProjection::new(
+            self.store.graph_id(),
+            self.revision,
+            node_ids,
+            edge_ids,
+        ))
+    }
+
     /// Proyección estructural global del estado actual: `GraphId`,
     /// `GraphRevision` y membresía de `NodeId`/`EdgeId`, sin metadata.
     /// Independiente de mutaciones posteriores del estado.
@@ -754,6 +797,170 @@ mod tests {
         let _ = state.global_projection();
 
         assert_eq!(state.revision(), before);
+    }
+
+    #[test]
+    fn local_projection_none_when_center_missing_and_revision_unchanged() {
+        let state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        let before = state.revision();
+
+        let projection = state.local_projection_depth_one(NodeId::new(99));
+
+        assert!(projection.is_none());
+        assert_eq!(state.revision(), before);
+    }
+
+    #[test]
+    fn local_projection_isolated_center_has_one_node_and_no_edges() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "a")).unwrap();
+
+        let projection = state.local_projection_depth_one(NodeId::new(1)).unwrap();
+
+        assert_eq!(projection.node_count(), 1);
+        assert_eq!(projection.edge_count(), 0);
+        assert!(projection.contains_node(NodeId::new(1)));
+    }
+
+    #[test]
+    fn local_projection_includes_neighbors_via_incoming_and_outgoing() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "a")).unwrap();
+        state.upsert_node(node(2, "b")).unwrap();
+        state.upsert_node(node(3, "c")).unwrap();
+        state.upsert_edge(edge(1, 1, 2, "out")).unwrap(); // 1 -> 2
+        state.upsert_edge(edge(2, 3, 1, "in")).unwrap(); // 3 -> 1
+
+        let projection = state.local_projection_depth_one(NodeId::new(1)).unwrap();
+
+        assert_eq!(projection.node_count(), 3);
+        assert!(projection.contains_node(NodeId::new(1)));
+        assert!(projection.contains_node(NodeId::new(2)));
+        assert!(projection.contains_node(NodeId::new(3)));
+        assert_eq!(projection.edge_count(), 2);
+    }
+
+    #[test]
+    fn local_projection_includes_self_loop_center_once() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "a")).unwrap();
+        state.upsert_edge(edge(1, 1, 1, "self")).unwrap();
+
+        let projection = state.local_projection_depth_one(NodeId::new(1)).unwrap();
+
+        assert_eq!(projection.node_count(), 1);
+        assert_eq!(projection.edge_count(), 1);
+        assert!(projection.contains_edge(EdgeId::new(1)));
+    }
+
+    #[test]
+    fn local_projection_includes_parallel_edges_without_duplicating() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "a")).unwrap();
+        state.upsert_node(node(2, "b")).unwrap();
+        state.upsert_edge(edge(1, 1, 2, "p1")).unwrap();
+        state.upsert_edge(edge(2, 1, 2, "p2")).unwrap();
+
+        let projection = state.local_projection_depth_one(NodeId::new(1)).unwrap();
+
+        assert_eq!(projection.edge_count(), 2);
+        assert!(projection.contains_edge(EdgeId::new(1)));
+        assert!(projection.contains_edge(EdgeId::new(2)));
+    }
+
+    #[test]
+    fn local_projection_includes_edge_between_two_direct_neighbors() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "center")).unwrap();
+        state.upsert_node(node(2, "a")).unwrap();
+        state.upsert_node(node(3, "b")).unwrap();
+        state.upsert_edge(edge(1, 1, 2, "c-a")).unwrap();
+        state.upsert_edge(edge(2, 1, 3, "c-b")).unwrap();
+        state.upsert_edge(edge(3, 2, 3, "a-b")).unwrap(); // entre vecinos
+
+        let projection = state.local_projection_depth_one(NodeId::new(1)).unwrap();
+
+        assert_eq!(projection.node_count(), 3);
+        assert_eq!(projection.edge_count(), 3);
+        assert!(projection.contains_edge(EdgeId::new(3)));
+    }
+
+    #[test]
+    fn local_projection_excludes_node_and_edge_at_distance_two() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "center")).unwrap();
+        state.upsert_node(node(2, "neighbor")).unwrap();
+        state.upsert_node(node(3, "far")).unwrap();
+        state.upsert_edge(edge(1, 1, 2, "c-n")).unwrap();
+        state.upsert_edge(edge(2, 2, 3, "n-far")).unwrap();
+
+        let projection = state.local_projection_depth_one(NodeId::new(1)).unwrap();
+
+        assert_eq!(projection.node_count(), 2);
+        assert!(!projection.contains_node(NodeId::new(3)));
+        assert_eq!(projection.edge_count(), 1);
+        assert!(!projection.contains_edge(EdgeId::new(2)));
+    }
+
+    #[test]
+    fn local_projection_preserves_graph_id_and_capture_revision() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(42));
+        state.upsert_node(node(1, "a")).unwrap();
+        let revision_at_capture = state.revision();
+
+        let projection = state.local_projection_depth_one(NodeId::new(1)).unwrap();
+
+        assert_eq!(projection.graph_id(), GraphId::new(42));
+        assert_eq!(projection.revision(), revision_at_capture);
+    }
+
+    #[test]
+    fn local_projection_taken_before_later_mutations_keeps_original_content_and_revision() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "a")).unwrap();
+        state.upsert_node(node(2, "b")).unwrap();
+        state.upsert_edge(edge(1, 1, 2, "a-b")).unwrap();
+
+        let projection = state.local_projection_depth_one(NodeId::new(1)).unwrap();
+        let revision_at_capture = projection.revision();
+
+        state.upsert_node(node(3, "c")).unwrap();
+        state.remove_edge(EdgeId::new(1)).unwrap();
+
+        assert_eq!(projection.revision(), revision_at_capture);
+        assert!(projection.contains_node(NodeId::new(2)));
+        assert!(projection.contains_edge(EdgeId::new(1)));
+        assert!(!projection.contains_node(NodeId::new(3)));
+    }
+
+    #[test]
+    fn local_projection_works_without_clonable_metadata() {
+        let mut state: GraphState<NonCloneMeta, NonCloneMeta> = GraphState::new(GraphId::new(1));
+        state
+            .upsert_node(GraphNode {
+                id: NodeId::new(1),
+                metadata: NonCloneMeta,
+            })
+            .unwrap();
+        state
+            .upsert_node(GraphNode {
+                id: NodeId::new(2),
+                metadata: NonCloneMeta,
+            })
+            .unwrap();
+        state
+            .upsert_edge(GraphEdge {
+                id: EdgeId::new(1),
+                from: NodeId::new(1),
+                to: NodeId::new(2),
+                metadata: NonCloneMeta,
+            })
+            .unwrap();
+
+        let projection = state.local_projection_depth_one(NodeId::new(1)).unwrap();
+
+        assert_eq!(projection.node_count(), 2);
+        assert_eq!(projection.edge_count(), 1);
     }
 
     #[test]

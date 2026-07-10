@@ -3,6 +3,9 @@
 //! `GraphStore` sigue sin conocer revisiones. `GraphState` es el único
 //! punto de este tramo que las posee y avanza.
 
+use std::collections::HashSet;
+
+use super::projection::GraphProjection;
 use super::store::{GraphStore, GraphStoreError};
 use super::{
     EdgeId, GraphDelta, GraphEdge, GraphId, GraphNode, GraphRevision, GraphSnapshot, NodeId,
@@ -62,6 +65,15 @@ impl<TNodeMeta, TEdgeMeta> GraphState<TNodeMeta, TEdgeMeta> {
     /// (delega en `GraphStore`, respaldado por `HashMap`).
     pub(crate) fn edge_ids(&self) -> impl Iterator<Item = EdgeId> + '_ {
         self.store.edge_ids()
+    }
+
+    /// Proyección estructural global del estado actual: `GraphId`,
+    /// `GraphRevision` y membresía de `NodeId`/`EdgeId`, sin metadata.
+    /// Independiente de mutaciones posteriores del estado.
+    pub(crate) fn global_projection(&self) -> GraphProjection {
+        let node_ids: HashSet<NodeId> = self.store.node_ids().collect();
+        let edge_ids: HashSet<EdgeId> = self.store.edge_ids().collect();
+        GraphProjection::new(self.store.graph_id(), self.revision, node_ids, edge_ids)
     }
 
     pub(crate) fn snapshot(&self) -> GraphSnapshot<TNodeMeta, TEdgeMeta>
@@ -656,5 +668,121 @@ mod tests {
 
         assert_eq!(state.node_ids().count(), 2);
         assert_eq!(state.edge_ids().count(), 1);
+    }
+
+    #[test]
+    fn global_projection_of_new_state_is_empty_at_initial_revision() {
+        let state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(5));
+
+        let projection = state.global_projection();
+
+        assert_eq!(projection.graph_id(), GraphId::new(5));
+        assert_eq!(projection.revision(), GraphRevision::initial());
+        assert_eq!(projection.node_count(), 0);
+        assert_eq!(projection.edge_count(), 0);
+    }
+
+    #[test]
+    fn global_projection_contains_current_ids_exactly_once() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "a")).unwrap();
+        state.upsert_node(node(2, "b")).unwrap();
+        state.upsert_edge(edge(1, 1, 2, "a-b")).unwrap();
+
+        let projection = state.global_projection();
+
+        assert_eq!(projection.node_count(), 2);
+        assert_eq!(projection.edge_count(), 1);
+        assert!(projection.contains_node(NodeId::new(1)));
+        assert!(projection.contains_node(NodeId::new(2)));
+        assert!(projection.contains_edge(EdgeId::new(1)));
+    }
+
+    #[test]
+    fn replacing_node_or_edge_does_not_duplicate_ids_in_new_projection() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "a")).unwrap();
+        state.upsert_node(node(2, "b")).unwrap();
+        state.upsert_edge(edge(1, 1, 2, "a-b")).unwrap();
+
+        state.upsert_node(node(1, "a-v2")).unwrap();
+        state.upsert_edge(edge(1, 1, 2, "a-b-v2")).unwrap();
+
+        let projection = state.global_projection();
+        assert_eq!(projection.node_count(), 2);
+        assert_eq!(projection.edge_count(), 1);
+    }
+
+    #[test]
+    fn removed_ids_are_absent_from_a_new_projection() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "a")).unwrap();
+        state.upsert_node(node(2, "b")).unwrap();
+        state.upsert_edge(edge(1, 1, 2, "a-b")).unwrap();
+
+        state.remove_edge(EdgeId::new(1)).unwrap();
+        state.remove_node(NodeId::new(1)).unwrap();
+
+        let projection = state.global_projection();
+        assert!(!projection.contains_node(NodeId::new(1)));
+        assert!(!projection.contains_edge(EdgeId::new(1)));
+        assert!(projection.contains_node(NodeId::new(2)));
+    }
+
+    #[test]
+    fn projection_taken_before_later_mutations_keeps_original_content_and_revision() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "a")).unwrap();
+
+        let projection = state.global_projection();
+        let revision_at_capture = projection.revision();
+
+        state.upsert_node(node(2, "b")).unwrap();
+        state.remove_node(NodeId::new(1)).unwrap();
+
+        assert_eq!(projection.revision(), revision_at_capture);
+        assert!(projection.contains_node(NodeId::new(1)));
+        assert!(!projection.contains_node(NodeId::new(2)));
+    }
+
+    #[test]
+    fn global_projection_does_not_change_state_revision() {
+        let mut state = GraphState::<TestNodeMeta, TestEdgeMeta>::new(GraphId::new(1));
+        state.upsert_node(node(1, "a")).unwrap();
+        let before = state.revision();
+
+        let _ = state.global_projection();
+
+        assert_eq!(state.revision(), before);
+    }
+
+    #[test]
+    fn global_projection_does_not_require_clonable_metadata() {
+        let mut state: GraphState<NonCloneMeta, NonCloneMeta> = GraphState::new(GraphId::new(1));
+        state
+            .upsert_node(GraphNode {
+                id: NodeId::new(1),
+                metadata: NonCloneMeta,
+            })
+            .unwrap();
+        state
+            .upsert_node(GraphNode {
+                id: NodeId::new(2),
+                metadata: NonCloneMeta,
+            })
+            .unwrap();
+        state
+            .upsert_edge(GraphEdge {
+                id: EdgeId::new(1),
+                from: NodeId::new(1),
+                to: NodeId::new(2),
+                metadata: NonCloneMeta,
+            })
+            .unwrap();
+
+        let projection = state.global_projection();
+
+        assert_eq!(projection.node_count(), 2);
+        assert_eq!(projection.edge_count(), 1);
     }
 }
